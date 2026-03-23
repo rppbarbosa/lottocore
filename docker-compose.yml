@@ -1,21 +1,54 @@
+# Stack de produção: PostgreSQL + API + Nginx (UI com proxy /api e /ws).
+# Usado por painéis que só leem docker-compose.yml (ex.: Hostinger Docker Manager).
+#
+# Na VPS: cp env.production.template .env e preencha segredos.
+# Depois: docker compose up -d --build
+
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: lottocore-postgres
+    container_name: lottocore-postgres-prod
+    restart: unless-stopped
+    env_file: .env
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-bingo}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bingo_dev_change_me}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no .env}
       POSTGRES_DB: ${POSTGRES_DB:-bingo}
-    ports:
-      # Host 5433 evita conflito com PostgreSQL local em 5432 (Windows comum)
-      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - lottocore_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bingo} -d ${POSTGRES_DB:-bingo}"]
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-bingo} -d ${POSTGRES_DB:-bingo}']
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: lottocore-backend-prod
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: '3000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - lottocore_uploads:/app/backend/uploads
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: lottocore-frontend-prod
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - '${HTTP_PORT:-8080}:80'
 
 volumes:
   lottocore_pgdata:
+  lottocore_uploads:

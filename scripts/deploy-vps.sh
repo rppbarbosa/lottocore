@@ -10,6 +10,6 @@ if [[ ! -f .env ]]; then
 fi
 
 git pull
-docker compose -f docker-compose.prod.yml build
-docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml ps
+docker compose build
+docker compose up -d
+docker compose ps

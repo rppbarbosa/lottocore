@@ -62,9 +62,9 @@ openssl rand -base64 48
 Na pasta do repositório na VPS:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml ps
-docker compose -f docker-compose.prod.yml logs -f --tail=80 backend
+docker compose up -d --build
+docker compose ps
+docker compose logs -f --tail=80 backend
 ```
 
 - Migrações SQL correm **automaticamente** antes de iniciar a API (`backend/docker-entrypoint.sh`).
@@ -80,15 +80,41 @@ Ou manualmente:
 
 ```bash
 git pull
-docker compose -f docker-compose.prod.yml up -d --build
+docker compose up -d --build
 ```
 
-## 5. Traefik (opcional)
+## 5. Hostinger (Docker Manager) e `unknown flag: --quiet-build`
+
+O painel usa por defeito o ficheiro **`docker-compose.yml`** na raiz do repositório. A stack de produção (Postgres + backend + frontend) está **nesse ficheiro** desde a correção alinhada com esse comportamento.
+
+Se o *build* falhar com:
+
+```text
+unknown flag: --quiet-build
+```
+
+o problema é a **versão do Docker Compose** no servidor do painel: o *wrapper* da Hostinger passa uma opção que o *plugin* `docker compose` instalado ainda não reconhece.
+
+**O que pode fazer:**
+
+1. **Suporte Hostinger** — pedir atualização do Docker Compose / correção do comando de build (a flag `--quiet-build` é deles, não do repositório).
+2. **SSH na VPS** (se o plano permitir) — fazer deploy manual, sem o assistente:
+   ```bash
+   cd /caminho/do/lottocore
+   cp env.production.template .env   # se ainda não existir
+   nano .env
+   docker compose build
+   docker compose up -d
+   ```
+   Estes comandos **não** usam `--quiet-build`.
+3. Garantir que existe um **`.env`** no repositório na máquina de build com `POSTGRES_PASSWORD`, `JWT_SECRET`, `DATABASE_URL` (host `postgres`), `PUBLIC_APP_URL`, etc.; caso contrário o Compose pode falhar ao validar variáveis.
+
+## 6. Traefik (opcional)
 
 Se já usa Traefik na mesma VPS:
 
 1. Crie/edite a rede externa que o Traefik usa (ex.: `root_default`).
-2. No `docker-compose.prod.yml`, no serviço `frontend`:
+2. No `docker-compose.yml`, no serviço `frontend`:
    - Remova ou comente `ports`.
    - Adicione `networks: [default, traefik]` e labels semelhantes a:
 
@@ -116,11 +142,11 @@ services:
 
 Ajuste `Host`, `entrypoints`, `certresolver` ao seu `docker-compose` do Traefik. O router deve apontar para a **porta 80 do contentor** `frontend` (Nginx interno).
 
-## 6. CI no GitHub Actions
+## 7. CI no GitHub Actions
 
 O workflow `.github/workflows/ci.yml` corre em cada *push* / PR para `main`: instala dependências com `npm ci`, faz build do frontend e valida que o projeto compila. Não faz deploy automático (pode acrescentar um job com SSH ou registry mais tarde).
 
-## 7. Resolução de problemas
+## 8. Resolução de problemas
 
 | Sintoma | Verificação |
 |--------|-------------|
@@ -129,11 +155,11 @@ O workflow `.github/workflows/ci.yml` corre em cada *push* / PR para `main`: ins
 | PDF falha no contentor | Chromium está na imagem; `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium` (definido no Dockerfile) |
 | WebSocket não liga | Proxy `/ws` com `Upgrade`; mesmo domínio que o site; em HTTPS use `wss://` (Traefik termina TLS) |
 
-## 8. Base de dados única
+## 9. Base de dados única
 
 Não substitua o volume PostgreSQL em produção sem backup. Para cópias de segurança:
 
 ```bash
-docker compose -f docker-compose.prod.yml exec postgres \
+docker compose exec postgres \
   pg_dump -U bingo bingo > backup-$(date +%F).sql
 ```

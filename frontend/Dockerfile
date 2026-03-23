@@ -1,4 +1,4 @@
-# Build from repositório: docker compose -f docker-compose.prod.yml build frontend
+# Build from repositório: docker compose build frontend
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package.json package-lock.json ./

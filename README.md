@@ -20,12 +20,13 @@ Ficheiros principais:
 
 | Ficheiro | Descrição |
 |----------|-----------|
-| `docker-compose.prod.yml` | Postgres + API + Nginx (UI com proxy `/api` e `/ws`) |
+| `docker-compose.yml` | Produção: Postgres + API + Nginx (UI com proxy `/api` e `/ws`) |
+| `docker-compose.postgres-dev.yml` | Só Postgres local (dev, porta 5433) |
 | `backend/Dockerfile` | API com Chromium para PDFs |
 | `frontend/Dockerfile` | Build Vite + Nginx |
 | `env.production.template` | Variáveis para copiar para `.env` na VPS |
 
-Resumo: na VPS, `cp env.production.template .env`, preencher segredos, depois `docker compose -f docker-compose.prod.yml up -d --build`. Script opcional: `./scripts/deploy-vps.sh`.
+Resumo: na VPS, `cp env.production.template .env`, preencher segredos, depois `docker compose up -d --build`. Script opcional: `./scripts/deploy-vps.sh`.
 
 ## Pré-requisitos
 
@@ -35,7 +36,7 @@ Resumo: na VPS, `cp env.production.template .env`, preencher segredos, depois `d
 ## Configuração
 
 1. Copie `env.template` para `.env` na raiz e ajuste se necessário.
-2. Suba o banco: `docker compose up -d`  
+2. Suba o banco: `docker compose -f docker-compose.postgres-dev.yml up -d`  
    O Postgres do Compose usa a porta **5433** no host (evita conflito com PostgreSQL local na 5432). Ajuste `DATABASE_URL` e `POSTGRES_PORT` no `.env` se mudar isso.
 3. Instale dependências na raiz: `npm install`
 4. Rode migrações: `npm run migrate`
@@ -136,5 +137,5 @@ A primeira instalação do **Puppeteer** pode descarregar o Chromium. Em **Docke
 
 - `npm run migrate` — aplica migrações SQL pendentes
 - `npm run build` — build de produção do frontend
-- `docker compose -f docker-compose.prod.yml up -d --build` — stack de produção (na VPS, com `.env` preenchido)
+- `docker compose up -d --build` — stack de produção (na VPS, com `.env` preenchido; ficheiro `docker-compose.yml`)
 - `./scripts/deploy-vps.sh` — `git pull` + rebuild + `up -d` (Linux/macOS na VPS)
