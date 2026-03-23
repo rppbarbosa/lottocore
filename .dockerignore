@@ -1,0 +1,16 @@
+node_modules
+**/node_modules
+frontend/dist
+.git
+.github
+.env
+.env.*
+!.env.example
+*.md
+!README.md
+docs
+Thumbs.db
+.DS_Store
+*.log
+backend/uploads
+.cursor

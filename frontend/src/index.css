@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 224 71% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 71% 4%;
+    --primary: 262 83% 58%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 224 71% 4%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 262 30% 96%;
+    --accent-foreground: 262 83% 30%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 262 83% 58%;
+    --radius: 0.5rem;
+    /* Sidebar clara (painel SaaS light) */
+    --sidebar: 220 16% 97%;
+    --sidebar-foreground: 224 47% 12%;
+    --sidebar-border: 220 13% 90%;
+    --sidebar-accent: 262 40% 94%;
+    --font-sans: 'DM Sans', system-ui, sans-serif;
+  }
+
+  .dark {
+    --background: 224 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 224 47% 9%;
+    --card-foreground: 210 40% 98%;
+    --primary: 263 70% 65%;
+    --primary-foreground: 224 47% 6%;
+    --secondary: 224 40% 14%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 224 40% 14%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 224 40% 16%;
+    --accent-foreground: 263 70% 85%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 224 40% 18%;
+    --input: 224 40% 18%;
+    --ring: 263 70% 65%;
+    --sidebar: 224 50% 5%;
+    --sidebar-foreground: 210 40% 92%;
+    --sidebar-border: 224 40% 14%;
+    --sidebar-accent: 262 35% 20%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+  }
+}

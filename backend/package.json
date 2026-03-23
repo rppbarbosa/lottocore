@@ -1,0 +1,26 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/run-dev.mjs",
+    "dev:clean": "node scripts/run-dev.mjs",
+    "dev:watch-only": "node --watch src/index.js",
+    "start": "node src/index.js",
+    "migrate": "node scripts/migrate.js"
+  },
+  "dependencies": {
+    "archiver": "^7.0.1",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "nanoid": "^3.3.11",
+    "pg": "^8.13.1",
+    "puppeteer": "^24.40.0",
+    "qrcode": "^1.5.4",
+    "ws": "^8.19.0"
+  }
+}

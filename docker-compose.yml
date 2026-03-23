@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lottocore-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-bingo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bingo_dev_change_me}
+      POSTGRES_DB: ${POSTGRES_DB:-bingo}
+    ports:
+      # Host 5433 evita conflito com PostgreSQL local em 5432 (Windows comum)
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - lottocore_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bingo} -d ${POSTGRES_DB:-bingo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  lottocore_pgdata:
