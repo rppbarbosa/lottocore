@@ -2,7 +2,8 @@
 # Deploy na pasta do repositório (projeto Compose: lottocore — ver name: no docker-compose.yml).
 # git pull → volumes nomeados → docker compose build → up -d
 # Uso: na raiz do repositório: ./scripts/deploy-vps.sh
-# Atalho legado: ./scripts/deploy-root-merged.sh chama este script.
+# Atalho legado: ./scripts/deploy-root-merged.sh pode chamar este script.
+# Com Traefik (Host por domínio no Compose): use ./scripts/deploy-vps-traefik.sh e DOMAIN no .env.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

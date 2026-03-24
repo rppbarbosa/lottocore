@@ -215,11 +215,37 @@ o problema é a **versão do Docker Compose** no servidor do painel: o *wrapper*
 
 ## 7. Traefik
 
+Vários domínios podem apontar (registro **A**) para o **mesmo IP**. O Traefik escolhe o contentor pelo cabeçalho **`Host`**. Sem regra `Host` correta por projeto, **outro domínio pode abrir o site errado**.
+
+### 7.1 Stack root + ficheiro dinâmico (padrão documentado Hostinger)
+
 1. **`/root/docker-compose.yml`**: Traefik com redirecionamento global **HTTP → HTTPS**; certificado Let's Encrypt via **`mytlschallenge`** (`SSL_EMAIL` no `/root/.env`).
-2. **LottoCore**: roteamento em **`traefik-dynamic/lottocore-http.yaml`** (router **`lottocore-web`**, serviço → `http://lottocore-frontend-prod:80`, **`tls.certResolver: mytlschallenge`**). O Traefik recarrega a pasta dinâmica ao detetar alterações.
+2. **LottoCore**: roteamento em **`traefik-dynamic/lottocore-http.yaml`** (router para `lottocore.atus.tech` ou o seu host, serviço → `http://lottocore-frontend-prod:80`, **`tls.certResolver: mytlschallenge`**). O Traefik recarrega a pasta dinâmica ao detetar alterações.
 3. DNS e rate limits: ver secção **DNS e Let's Encrypt** acima.
 
 O contentor **frontend** inclui **Nginx** só **dentro** da rede Docker (estático + proxy `/api` e `/ws` para o backend); quem expõe TLS na Internet é o **Traefik**.
+
+### 7.2 Overlay `docker-compose.traefik.yml` (Host via `DOMAIN` no `.env`)
+
+Alternativa quando quiser as labels Traefik **no próprio repositório**:
+
+1. No `.env` defina **`DOMAIN`** = FQDN só do LottoCore (diferente da Comissão 360 / outros).
+2. Alinhe **`PUBLIC_APP_URL`** a `https://` + esse mesmo host (sem barra final).
+3. Suba com dois ficheiros (o overlay usa `ports: !reset []` para evitar publicar `HTTP_PORT` no host em conflito com outros sites):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
+```
+
+Ou: `./scripts/deploy-vps-traefik.sh` (faz `git pull` + build + up).
+
+4. Rede externa **`root_default`** tem de existir (criada pelo stack do Traefik em `/root` ou equivalente).
+5. O **certificate resolver** nas labels usa **`mytlschallenge`**. Se o seu Traefik usar outro nome, altere `tls.certresolver` em `docker-compose.traefik.yml`.
+
+### 7.3 Depois de mudanças de roteamento
+
+- Pare stacks antigas do LottoCore que publiquem **80:80** ou **443:443** no host sem passar pelo Traefik, se estiverem a conflituar.
+- Confirme no Traefik routers **distintos** por domínio.
 
 ## 8. CI no GitHub Actions
 
@@ -237,6 +263,7 @@ O workflow `.github/workflows/ci.yml` corre em cada *push* / PR para `main`: ins
 | Login devolve **401** com “credenciais que deveriam estar certas” | A tabela `users` pode estar **vazia** (primeiro deploy). Crie conta em **`/register`** no site; não há utilizador pré-definido na BD. |
 | Ligar ao PostgreSQL a partir do host | Utilizador e base por defeito **`bingo`**; senha: **`POSTGRES_PASSWORD`** em **`lottocore/.env`**. No host, porta publicada por defeito **`5440`** → 5432 no contentor (`PUBLISH_POSTGRES_PORT`). Ex.: `psql "postgresql://bingo:SENHA@127.0.0.1:5440/bingo"`. Dentro da rede Docker, use o hostname **`postgres`** como em `DATABASE_URL`. |
 | Copiar a BD do PC para a VPS | No PC: `pg_dump -h 127.0.0.1 -p 5433 -U bingo -d bingo -Fc -f lottocore.dump` (ajuste porta/senha ao `.env` local). Envie o ficheiro para a VPS (`scp`, etc.) e na raiz do repo: **`./scripts/import-pg-dump-into-docker.sh /caminho/lottocore.dump`**. O login da app usa as linhas da tabela **`users`** (não confundir com `POSTGRES_PASSWORD`). |
+| Domínio da Comissão 360 abre o LottoCore (ou o contrário) | Mesmo IP é normal; falta roteamento por **Host**. Use ficheiro dinâmico Traefik por FQDN ou overlay `docker-compose.traefik.yml` com `DOMAIN` diferente por projeto; **não** publique dois frontends na mesma porta 80 sem Traefik. |
 
 ## 10. Base de dados única
 

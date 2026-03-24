@@ -20,13 +20,14 @@ Ficheiros principais:
 
 | Ficheiro | Descrição |
 |----------|-----------|
-| `docker-compose.yml` | Produção: Postgres + API + Nginx; `name: lottocore` (stack próprio no painel) |
+| `docker-compose.yml` | Produção: Postgres + API + Nginx; `name: lottocore` (stack próprio no painel); proxy `/api` e `/ws` |
+| `docker-compose.traefik.yml` | Overlay VPS (opcional): `Host(DOMAIN)` + rede `root_default` (sem portas HTTP duplicadas no host) |
 | `docker-compose.postgres-dev.yml` | Só Postgres local (dev, porta 5433) |
 | `backend/Dockerfile` | API com Chromium para PDFs |
 | `frontend/Dockerfile` | Build Vite + Nginx (servidor interno; roteador público = Traefik) |
 | `env.production.template` | Variáveis para copiar para `.env` na VPS |
 
-Resumo: na VPS, **portas no host** (8092 UI, 3020 API, 5440 Postgres — ver `env.production.template`) + Traefik para `https://APP_HOST`; `cp env.production.template .env`, `./scripts/deploy-vps.sh` ou `docker compose up -d --build`. Windows → VPS: `.\scripts\deploy-remote.ps1`. Ver [docs/DEPLOY.md](docs/DEPLOY.md) §4.
+Resumo: na VPS, `cp env.production.template .env`, preencher segredos. **Portas no host** (predef. 8092 / 3020 / 5440) + Traefik com ficheiro dinâmico (`deploy/traefik/lottocore-http.yaml`) **ou** overlay `docker-compose.traefik.yml` com `DOMAIN` (vários sites no mesmo IP). `./scripts/deploy-vps.sh` ou `docker compose up -d --build`; com overlay: `./scripts/deploy-vps-traefik.sh` ou `docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build`. Windows → VPS: `.\scripts\deploy-remote.ps1`. Ver [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Pré-requisitos
 

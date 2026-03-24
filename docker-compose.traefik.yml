@@ -1,0 +1,25 @@
+# Overlay para VPS com Traefik na mesma máquina (vários domínios → mesmo IP).
+# Uso: docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
+#
+# Exige DOMAIN no .env (FQDN exclusivo deste app). Não publica HTTP_PORT no host;
+# o Traefik encaminha pelo cabeçalho Host para o Nginx na porta 80 do contentor.
+
+services:
+  frontend:
+    # Compose concatena `ports` entre arquivos; !reset evita publicar HTTP_PORT no host.
+    ports: !reset []
+    networks:
+      - default
+      - root_default
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.lottocore.rule=Host(`${DOMAIN}`)
+      - traefik.http.routers.lottocore.entrypoints=web,websecure
+      - traefik.http.routers.lottocore.tls=true
+      - traefik.http.routers.lottocore.tls.certresolver=mytlschallenge
+      - traefik.http.routers.lottocore.service=lottocore
+      - traefik.http.services.lottocore.loadbalancer.server.port=80
+
+networks:
+  root_default:
+    external: true
