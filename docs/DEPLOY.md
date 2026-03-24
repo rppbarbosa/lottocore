@@ -26,6 +26,8 @@ Use SSH se preferir: `git@github.com:SEU_USUARIO/LottoCore.git`.
 | `backend`  | `lottocore-backend-prod`  | API Node (Express), migrações ao arranque, Puppeteer + Chromium |
 | `frontend` | `lottocore-frontend-prod` | Nginx a servir o build estático e *proxy* de `/api` e `/ws` para o backend |
 
+No host (predef.): UI **`8092`**, API **`3020`**, Postgres **`5440`** — configurável com `PUBLISH_*_PORT` no `.env`.
+
 O browser fala sempre com o **mesmo host** (Nginx), o que evita problemas de CORS no painel.
 
 ## 3. Preparar a VPS
