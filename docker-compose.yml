@@ -1,11 +1,11 @@
-# Stack de produção: PostgreSQL + API + contentor frontend (Nginx interno: estático + proxy /api e /ws).
-# Roteador de borda: só Traefik (80/443 no stack root). Este projeto não publica portas no host.
-# O contentor frontend liga à rede root_default para o Traefik encaminhar para a porta 80 interna.
+# Stack de produção: PostgreSQL + API + frontend (Nginx interno: estático + proxy /api e /ws).
+# Portas no host (painel Hostinger / outros projetos): PUBLISH_* no .env — predefinições evitam 3010/5180/5434.
+# Traefik (stack root) continua a rotear https://APP_HOST → frontend:80 na rede root_default.
 #
 # Na VPS: cp env.production.template .env; docker network create root_default 2>/dev/null || true
 # Depois: docker compose up -d --build
 #
-# DNS: A/AAAA para APP_HOST → IP da VPS. Rota TLS: deploy/traefik/lottocore-http.yaml (file provider).
+# DNS: A/AAAA para APP_HOST → IP da VPS. TLS: deploy/traefik/lottocore-http.yaml
 
 name: lottocore
 
@@ -27,6 +27,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-bingo}
     volumes:
       - lottocore_pgdata:/var/lib/postgresql/data
+    ports:
+      - '${PUBLISH_POSTGRES_PORT:-5440}:5432'
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-bingo} -d ${POSTGRES_DB:-bingo}']
       interval: 5s
@@ -48,6 +50,8 @@ services:
         condition: service_healthy
     volumes:
       - lottocore_uploads:/app/backend/uploads
+    ports:
+      - '${PUBLISH_BACKEND_PORT:-3020}:3000'
 
   frontend:
     build:
@@ -60,6 +64,8 @@ services:
     networks:
       - default
       - traefik
+    ports:
+      - '${PUBLISH_FRONTEND_PORT:-8092}:80'
 
 volumes:
   # Nomes fixos na VPS. Primeira vez: docker volume create lottocore_pgdata && docker volume create lottocore_uploads

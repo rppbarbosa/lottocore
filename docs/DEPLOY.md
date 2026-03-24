@@ -35,7 +35,7 @@ O browser fala sempre com o **mesmo host** (Nginx), o que evita problemas de COR
 - **`docker-compose.yml` define `name: lottocore`**: no Docker Manager da Hostinger o projeto aparece como **lottocore** (como comissao360, sothia-legal-nexus, etc.), **não** dentro do stack **root**.
 - **Traefik** no stack **`root`** (`/root/docker-compose.yml`). A rota **`lottocore.atus.tech`** está no **file provider** (pasta montada em `/etc/traefik/dynamic`), no mesmo estilo do Nexus: copie ou mantenha **`deploy/traefik/lottocore-http.yaml`** na VPS em **`/root/sothia-legal-nexus/traefik-dynamic/lottocore-http.yaml`** (caminho atual do `docker-compose` do root). O contentor **`lottocore-frontend-prod`** tem de estar na rede **`root_default`** (já definido no `docker-compose.yml` do LottoCore).
 - **`deploy-vps.sh`** cria os volumes nomeados `lottocore_pgdata` e `lottocore_uploads` se ainda não existirem, depois corre `docker compose up -d --build` na pasta do repositório.
-- **Sem portas publicadas no host** neste stack: o acesso público é **`https://APP_HOST`** via **Traefik** (80/443). O painel Hostinger pode não mostrar link **Abrir** no projeto lottocore — é esperado.
+- **Portas no host** (como outros projetos no painel Hostinger): **`PUBLISH_FRONTEND_PORT`** (predef. **8092** → Nginx), **`PUBLISH_BACKEND_PORT`** (predef. **3020** → API), **`PUBLISH_POSTGRES_PORT`** (predef. **5440** → Postgres). Ajuste no `.env` se alguma porta estiver ocupada. O site pelo domínio continua a ir por **Traefik** (443); as portas servem para testes, ferramentas e o link **Abrir** do gestor.
 
 ### Rede do Traefik
 
@@ -47,7 +47,13 @@ docker network ls | grep -E 'root|traefik'
 
 ### VPS com vários projetos (portas)
 
-PostgreSQL, backend e frontend **não** mapeiam portas para o host. O **Traefik** (stack `root`) é o único ponto de entrada HTTP(S) para o domínio.
+| Serviço (Compose) | Porta no host (predef.) | Contentor |
+|---------------------|-------------------------|-----------|
+| `frontend` | 8092 | 80 |
+| `backend` | 3020 | 3000 |
+| `postgres` | 5440 | 5432 |
+
+Evite conflito com outros stacks (ex. comissao360: 3010, 5180, 5434). O **Traefik** continua a ser o ponto de entrada em **80/443** para `https://APP_HOST`.
 
 ```bash
 ss -tlnp
@@ -60,7 +66,7 @@ mkdir -p ~/apps && cd ~/apps
 git clone https://github.com/SEU_USUARIO/LottoCore.git
 cd LottoCore
 cp env.production.template .env
-nano .env   # POSTGRES_PASSWORD, JWT_SECRET, DATABASE_URL, APP_HOST, PUBLIC_APP_URL, TRAEFIK_NETWORK
+nano .env   # segredos, APP_HOST, PUBLIC_APP_URL, TRAEFIK_NETWORK, PUBLISH_*_PORT
 ```
 
 **`DATABASE_URL` em Docker** tem de usar o hostname **`postgres`** (nome do serviço no Compose), não `127.0.0.1`:

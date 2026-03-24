@@ -26,7 +26,7 @@ Ficheiros principais:
 | `frontend/Dockerfile` | Build Vite + Nginx (servidor interno; roteador público = Traefik) |
 | `env.production.template` | Variáveis para copiar para `.env` na VPS |
 
-Resumo: na VPS, Traefik (stack `root`) encaminha o domínio para o contentor `frontend`; `cp env.production.template .env`, `./scripts/deploy-vps.sh` ou `docker compose up -d --build`. Windows → VPS: `.\scripts\deploy-remote.ps1`. Ver [docs/DEPLOY.md](docs/DEPLOY.md) §4.
+Resumo: na VPS, **portas no host** (8092 UI, 3020 API, 5440 Postgres — ver `env.production.template`) + Traefik para `https://APP_HOST`; `cp env.production.template .env`, `./scripts/deploy-vps.sh` ou `docker compose up -d --build`. Windows → VPS: `.\scripts\deploy-remote.ps1`. Ver [docs/DEPLOY.md](docs/DEPLOY.md) §4.
 
 ## Pré-requisitos
 
