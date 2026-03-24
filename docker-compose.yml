@@ -1,13 +1,11 @@
-# Stack de produção: PostgreSQL + API + Nginx (UI com proxy /api e /ws).
-# Projeto Compose: lottocore (name abaixo) — aparece assim no painel Hostinger / Docker Manager.
-# Traefik continua no stack root (/root/docker-compose.yml); este stack só liga à rede root_default.
+# Stack de produção: PostgreSQL + API + contentor frontend (Nginx interno: estático + proxy /api e /ws).
+# Roteador de borda: só Traefik (80/443 no stack root). Este projeto não publica portas no host.
+# O contentor frontend liga à rede root_default para o Traefik encaminhar para a porta 80 interna.
 #
-# Na VPS: cp env.production.template .env; rede do Traefik:
-#   docker network create root_default 2>/dev/null || true
-# Depois, na pasta do repo: docker compose up -d --build
+# Na VPS: cp env.production.template .env; docker network create root_default 2>/dev/null || true
+# Depois: docker compose up -d --build
 #
-# DNS: apontar APP_HOST (ex. lottocore.atus.tech) para o IP da VPS.
-# Acesso direto por porta (sem Traefik): ver docker-compose.publish.yml
+# DNS: A/AAAA para APP_HOST → IP da VPS. Rota TLS: deploy/traefik/lottocore-http.yaml (file provider).
 
 name: lottocore
 
@@ -62,7 +60,6 @@ services:
     networks:
       - default
       - traefik
-    # Rota HTTPS: ficheiro no Traefik (file provider), igual ao Nexus — ver deploy/traefik/lottocore-http.yaml
 
 volumes:
   # Nomes fixos na VPS. Primeira vez: docker volume create lottocore_pgdata && docker volume create lottocore_uploads

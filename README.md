@@ -23,10 +23,10 @@ Ficheiros principais:
 | `docker-compose.yml` | Produção: Postgres + API + Nginx; `name: lottocore` (stack próprio no painel) |
 | `docker-compose.postgres-dev.yml` | Só Postgres local (dev, porta 5433) |
 | `backend/Dockerfile` | API com Chromium para PDFs |
-| `frontend/Dockerfile` | Build Vite + Nginx |
+| `frontend/Dockerfile` | Build Vite + Nginx (servidor interno; roteador público = Traefik) |
 | `env.production.template` | Variáveis para copiar para `.env` na VPS |
 
-Resumo: na VPS, rede `root_default` (Traefik), `cp env.production.template .env`, `./scripts/deploy-vps.sh` ou `docker compose up -d --build` na pasta do repo. Windows → VPS: `.\scripts\deploy-remote.ps1`. Ver [docs/DEPLOY.md](docs/DEPLOY.md) §4.
+Resumo: na VPS, Traefik (stack `root`) encaminha o domínio para o contentor `frontend`; `cp env.production.template .env`, `./scripts/deploy-vps.sh` ou `docker compose up -d --build`. Windows → VPS: `.\scripts\deploy-remote.ps1`. Ver [docs/DEPLOY.md](docs/DEPLOY.md) §4.
 
 ## Pré-requisitos
 

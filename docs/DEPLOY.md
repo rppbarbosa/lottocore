@@ -35,7 +35,7 @@ O browser fala sempre com o **mesmo host** (Nginx), o que evita problemas de COR
 - **`docker-compose.yml` define `name: lottocore`**: no Docker Manager da Hostinger o projeto aparece como **lottocore** (como comissao360, sothia-legal-nexus, etc.), **não** dentro do stack **root**.
 - **Traefik** no stack **`root`** (`/root/docker-compose.yml`). A rota **`lottocore.atus.tech`** está no **file provider** (pasta montada em `/etc/traefik/dynamic`), no mesmo estilo do Nexus: copie ou mantenha **`deploy/traefik/lottocore-http.yaml`** na VPS em **`/root/sothia-legal-nexus/traefik-dynamic/lottocore-http.yaml`** (caminho atual do `docker-compose` do root). O contentor **`lottocore-frontend-prod`** tem de estar na rede **`root_default`** (já definido no `docker-compose.yml` do LottoCore).
 - **`deploy-vps.sh`** cria os volumes nomeados `lottocore_pgdata` e `lottocore_uploads` se ainda não existirem, depois corre `docker compose up -d --build` na pasta do repositório.
-- **Acesso direto por IP:porta** (depuração): `docker compose -f docker-compose.yml -f docker-compose.publish.yml up -d` e `HTTP_PORT` no `.env`.
+- **Sem portas publicadas no host** neste stack: o acesso público é **`https://APP_HOST`** via **Traefik** (80/443). O painel Hostinger pode não mostrar link **Abrir** no projeto lottocore — é esperado.
 
 ### Rede do Traefik
 
@@ -47,7 +47,7 @@ docker network ls | grep -E 'root|traefik'
 
 ### VPS com vários projetos (portas)
 
-PostgreSQL e o backend **não** publicam portas no host. Só há conflito se usar `docker-compose.publish.yml`; nesse caso escolha um `HTTP_PORT` livre (ex.: `8092`).
+PostgreSQL, backend e frontend **não** mapeiam portas para o host. O **Traefik** (stack `root`) é o único ponto de entrada HTTP(S) para o domínio.
 
 ```bash
 ss -tlnp
@@ -211,7 +211,7 @@ o problema é a **versão do Docker Compose** no servidor do painel: o *wrapper*
 2. **LottoCore**: roteamento em **`traefik-dynamic/lottocore-http.yaml`** (router **`lottocore-web`**, serviço → `http://lottocore-frontend-prod:80`, **`tls.certResolver: mytlschallenge`**). O Traefik recarrega a pasta dinâmica ao detetar alterações.
 3. DNS e rate limits: ver secção **DNS e Let's Encrypt** acima.
 
-Sem Traefik (só teste): `docker compose -f docker-compose.yml -f docker-compose.publish.yml up -d` e defina `HTTP_PORT`.
+O contentor **frontend** inclui **Nginx** só **dentro** da rede Docker (estático + proxy `/api` e `/ws` para o backend); quem expõe TLS na Internet é o **Traefik**.
 
 ## 8. CI no GitHub Actions
 
