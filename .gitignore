@@ -11,4 +11,6 @@ Thumbs.db
 .vscode/
 *.swp
 coverage/
-.cursor/
+# Cursor: versionar regras do projeto; ignorar o resto da pasta .cursor
+.cursor/*
+!.cursor/rules/
