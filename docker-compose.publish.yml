@@ -1,9 +1,0 @@
-# Opcional: expõe o Nginx no host (ex.: depuração sem DNS).
-# Uso: docker compose -f docker-compose.yml -f docker-compose.publish.yml up -d
-#
-# A stack padrão usa só Traefik (rede externa); não precisa deste ficheiro na VPS normal.
-
-services:
-  frontend:
-    ports:
-      - '${HTTP_PORT:-8092}:80'
