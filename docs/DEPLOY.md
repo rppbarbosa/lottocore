@@ -106,8 +106,29 @@ Substitua `root` pelo utilizador real (ex.: `ubuntu`, `debian`) e `IP_DA_VPS` pe
 
 1. Na primeira vez, aceite a *host key* do servidor quando o `ssh` perguntar.
 2. No servidor, instale Docker e Git se ainda não existirem (ver secção 3).
-3. Clone o repositório com **URL SSH** e a [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys) que configurou no GitHub (chave privada em `~/.ssh/` no servidor, `~/.ssh/config` com `Host github.com-lottocore` se usar alias).
-4. Copie `env.production.template` → `.env` e preencha variáveis (igual à secção 3).
+3. Configure a [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys) no repositório GitHub (**Read/write** se quiser `git push` a partir da VPS). A **chave privada não entra no Git** — fica só no servidor.
+4. Na VPS, guarde a privada em **`~/.ssh/lottocore_deploy`** com permissão **`600`**. No `~/.ssh/config` do servidor deve existir um host alias (o repositório documenta o nome **`github-lottocore`**) para não conflitar com outras chaves que usem `Host github.com`:
+
+```sshconfig
+Host github-lottocore
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/lottocore_deploy
+    IdentitiesOnly yes
+    StrictHostKeyChecking accept-new
+```
+
+5. Aponte o remoto `origin` para esse host (ex.: `rppbarbosa/lottocore`):
+
+```bash
+cd /caminho/do/lottocore
+git remote set-url origin git@github-lottocore:rppbarbosa/lottocore.git
+```
+
+6. Confirme que a fingerprint da privada na VPS coincide com a chave registada no GitHub: `ssh-keygen -lf ~/.ssh/lottocore_deploy`.
+7. Copie `env.production.template` → `.env` e preencha variáveis (igual à secção 3).
+
+**Nota:** Se no GitHub a deploy key aparecer como **Never used**, a privada correspondente **ainda não** foi usada desta VPS — ou a chave no servidor é outra (ex.: o `Host github.com` a usar `sothia_deploy` não é a deploy key do LottoCore). Use sempre o alias **`github-lottocore`**.
 
 Caminho típico no servidor: `~/apps/lottocore` ou **`/root/lottocore`** (alinhado ao Nexus em `/root/sothia-legal-nexus`).
 
