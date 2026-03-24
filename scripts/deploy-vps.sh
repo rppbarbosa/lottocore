@@ -2,6 +2,7 @@
 # Deploy na VPS — padrão alinhado ao Nexus (sothia-legal-nexus/deploy.sh):
 #   git pull origin main → docker compose build → up -d → ps
 # Uso: na raiz do repositório: ./scripts/deploy-vps.sh
+# Com Traefik (Host por domínio): use ./scripts/deploy-vps-traefik.sh e DOMAIN no .env.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

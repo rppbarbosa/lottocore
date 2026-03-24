@@ -161,38 +161,31 @@ o problema é a **versão do Docker Compose** no servidor do painel: o *wrapper*
    Estes comandos **não** usam `--quiet-build`.
 3. Garantir que existe um **`.env`** no repositório na máquina de build com `POSTGRES_PASSWORD`, `JWT_SECRET`, `DATABASE_URL` (host `postgres`), `PUBLIC_APP_URL`, etc.; caso contrário o Compose pode falhar ao validar variáveis.
 
-## 7. Traefik (opcional)
+## 7. Traefik (mesma VPS que Comissão 360 / outros projetos)
 
-Se já usa Traefik na mesma VPS:
+Vários domínios podem apontar (registro **A**) para o **mesmo IP**. O Traefik escolhe o contentor pelo cabeçalho **`Host`**. Se o LottoCore estiver escutando na **porta 80/443 do host** sem regra `Host` correta, ou se só existir um site ocupando a porta, **outro domínio pode cair no login errado**.
 
-1. Crie/edite a rede externa que o Traefik usa (ex.: `root_default`).
-2. No `docker-compose.yml`, no serviço `frontend`:
-   - Remova ou comente `ports`.
-   - Adicione `networks: [default, traefik]` e labels semelhantes a:
+### 7.1 Overlay incluído no repositório
 
-```yaml
-networks:
-  default:
-  traefik_net:
-    external: true
-    name: root_default
+1. No `.env` da VPS defina **`DOMAIN`** = FQDN **só** do LottoCore (ex.: `bingo.exemplo.com`), diferente do domínio da Comissão 360.
+2. Alinhe **`PUBLIC_APP_URL`** a esse domínio (`https://...`, sem barra final).
+3. Suba com **dois** arquivos Compose (o overlay usa `ports: !reset []` para não publicar `HTTP_PORT` no host):
 
-services:
-  frontend:
-    # ports: ...
-    networks:
-      - default
-      - traefik_net
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.lottocore.rule=Host(`bingo.seudominio.com`)
-      - traefik.http.routers.lottocore.entrypoints=websecure
-      - traefik.http.routers.lottocore.tls=true
-      - traefik.http.routers.lottocore.tls.certresolver=myresolver
-      - traefik.http.services.lottocore.loadbalancer.server.port=80
+```bash
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build
 ```
 
-Ajuste `Host`, `entrypoints`, `certresolver` ao seu `docker-compose` do Traefik. O router deve apontar para a **porta 80 do contentor** `frontend` (Nginx interno).
+Ou: `./scripts/deploy-vps-traefik.sh` (faz `git pull` + build + up).
+
+4. Rede externa **`root_default`** tem de existir (criada pelo stack do Traefik em `/root` ou equivalente).
+5. O **certificate resolver** nas labels usa o nome **`mytlschallenge`**, o mesmo descrito na documentação da Comissão 360. Se o seu Traefik usar outro nome, altere a label `tls.certresolver` em `docker-compose.traefik.yml`.
+
+O router **`lottocore`** usa a regra Traefik `Host` com o FQDN definido em **`DOMAIN`** no `.env` e envia tráfego para a porta **80** do contentor `frontend` (Nginx interno, que já faz proxy de `/api` e `/ws`). O overlay usa `ports: !reset []` porque o Compose **concatena** listas `ports` entre arquivos; sem `!reset`, a porta `HTTP_PORT` continuaria publicada no host (Docker Compose **v2.23+**).
+
+### 7.2 Depois de corrigir
+
+- Pare qualquer stack LottoCore antiga que publique **80:80** ou **443:443** no host sem passar pelo Traefik.
+- Confirme no painel/API do Traefik que existem routers **distintos** por domínio (Comissão 360 vs LottoCore).
 
 ## 8. CI no GitHub Actions
 
@@ -206,6 +199,7 @@ O workflow `.github/workflows/ci.yml` corre em cada *push* / PR para `main`: ins
 | 502 em `/api` | Nginx não alcança `backend:3000`; confirme que o serviço `backend` está `healthy` / `running` |
 | PDF falha no contentor | Chromium está na imagem; `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium` (definido no Dockerfile) |
 | WebSocket não liga | Proxy `/ws` com `Upgrade`; mesmo domínio que o site; em HTTPS use `wss://` (Traefik termina TLS) |
+| Domínio da Comissão 360 abre o LottoCore (ou o contrário) | Mesmo IP é normal; falta roteamento por **Host**. Use overlay `docker-compose.traefik.yml`, `DOMAIN` diferente por projeto, e **não** publique dois frontends na mesma porta 80 sem Traefik |
 
 ## 10. Base de dados única
 

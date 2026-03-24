@@ -21,12 +21,13 @@ Ficheiros principais:
 | Ficheiro | Descrição |
 |----------|-----------|
 | `docker-compose.yml` | Produção: Postgres + API + Nginx (UI com proxy `/api` e `/ws`) |
+| `docker-compose.traefik.yml` | Overlay VPS: `Host(DOMAIN)` + rede `root_default` (sem `HTTP_PORT` no host) |
 | `docker-compose.postgres-dev.yml` | Só Postgres local (dev, porta 5433) |
 | `backend/Dockerfile` | API com Chromium para PDFs |
 | `frontend/Dockerfile` | Build Vite + Nginx |
 | `env.production.template` | Variáveis para copiar para `.env` na VPS |
 
-Resumo: na VPS, `cp env.production.template .env`, preencher segredos, depois `docker compose up -d --build`. Scripts opcionais: `./scripts/deploy-vps.sh` (Linux, na VPS) e `.\scripts\deploy-remote.ps1` (Windows → SSH para a VPS). Ver [docs/DEPLOY.md](docs/DEPLOY.md) §4.
+Resumo: na VPS, `cp env.production.template .env`, preencher segredos, depois `docker compose up -d --build`. **Com Traefik** (vários sites no mesmo IP): defina `DOMAIN` no `.env` e use `docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --build` ou `./scripts/deploy-vps-traefik.sh`. Scripts: `./scripts/deploy-vps.sh`, `./scripts/deploy-vps-traefik.sh`, `.\scripts\deploy-remote.ps1`. Ver [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Pré-requisitos
 
