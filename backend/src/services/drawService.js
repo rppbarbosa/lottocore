@@ -1,4 +1,5 @@
 import { pool } from '../db.js';
+import { syncEventStatusFromRoundStates } from './eventService.js';
 
 export async function getRoundById(roundId) {
   const { rows } = await pool.query(
@@ -67,6 +68,11 @@ export async function drawNumber(roundId, number) {
     if (round.status === 'pending') {
       await client.query(`UPDATE rounds SET status = 'open' WHERE id = $1`, [roundId]);
     }
+
+    await client.query(
+      `UPDATE events SET status = 'active' WHERE id = $1 AND status = 'draft'`,
+      [round.event_id]
+    );
 
     await client.query('COMMIT');
 
@@ -158,15 +164,27 @@ export async function setRoundStatus(roundId, status) {
     e.statusCode = 400;
     throw e;
   }
-  const { rows } = await pool.query(
-    `UPDATE rounds SET status = $2 WHERE id = $1
-     RETURNING id, event_id, round_number, status`,
-    [roundId, status]
-  );
-  if (!rows.length) {
-    const e = new Error('Rodada não encontrada');
-    e.statusCode = 404;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE rounds SET status = $2 WHERE id = $1
+       RETURNING id, event_id, round_number, status`,
+      [roundId, status]
+    );
+    if (!rows.length) {
+      const e = new Error('Rodada não encontrada');
+      e.statusCode = 404;
+      throw e;
+    }
+    const round = rows[0];
+    await syncEventStatusFromRoundStates(client, round.event_id);
+    await client.query('COMMIT');
+    return round;
+  } catch (e) {
+    await client.query('ROLLBACK');
     throw e;
+  } finally {
+    client.release();
   }
-  return rows[0];
 }

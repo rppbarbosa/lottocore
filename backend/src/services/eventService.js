@@ -277,3 +277,36 @@ export async function updateEventPrintSettings(eventId, ownerUserId, settings) {
   );
   return rows[0] ?? null;
 }
+
+/**
+ * Sincroniza `events.status` com o fecho das rodadas (chamar dentro da mesma transação que altera rodadas).
+ *
+ * Regras:
+ * - Todas as rodadas `closed` → evento `draft` ou `active` passa a `archived`.
+ * - Nem todas fechadas e evento estava `archived` → volta a `active` (reabertura).
+ *
+ * @param {import('pg').PoolClient} client
+ * @param {string} eventId
+ * @returns {Promise<{ id: string, status: string } | null>}
+ */
+export async function syncEventStatusFromRoundStates(client, eventId) {
+  const { rows } = await client.query(
+    `UPDATE events e
+     SET status = CASE
+       WHEN (
+         SELECT COUNT(*)::int FROM rounds r
+         WHERE r.event_id = e.id AND r.status <> 'closed'
+       ) = 0 THEN
+         CASE
+           WHEN e.status IN ('draft', 'active') THEN 'archived'
+           ELSE e.status
+         END
+       WHEN e.status = 'archived' THEN 'active'
+       ELSE e.status
+     END
+     WHERE e.id = $1
+     RETURNING id, status`,
+    [eventId]
+  );
+  return rows[0] ?? null;
+}

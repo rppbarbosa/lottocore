@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -48,6 +49,12 @@ export type SheetRow = {
   buyer_email?: string | null
   buyer_address?: string | null
   buyer_cep?: string | null
+  buyer_street?: string | null
+  buyer_street_number?: string | null
+  buyer_address_complement?: string | null
+  buyer_neighborhood?: string | null
+  buyer_city?: string | null
+  buyer_state?: string | null
   seller_name?: string | null
   sale_price_cents?: number | null
   amount_paid_cents?: number | null
@@ -225,6 +232,18 @@ export function EventWorkspaceProvider({
     }
   }, [selectedRoundId, token])
 
+  /** Refs para o handler WS não depender de load* — senão cada mudança de rodada recria o efeito e fecha o socket em CONNECTING. */
+  const loadEventRef = useRef(loadEvent)
+  const loadSheetsRef = useRef(loadSheets)
+  const loadRoundRef = useRef(loadRound)
+  const loadWinnersRef = useRef(loadWinners)
+  useEffect(() => {
+    loadEventRef.current = loadEvent
+    loadSheetsRef.current = loadSheets
+    loadRoundRef.current = loadRound
+    loadWinnersRef.current = loadWinners
+  })
+
   useEffect(() => {
     void loadEvent()
   }, [loadEvent])
@@ -254,25 +273,44 @@ export function EventWorkspaceProvider({
     let active = true
     ws.onmessage = () => {
       if (!active) return
-      void loadRound()
-      void loadWinners()
-      void loadSheets()
-      void loadEvent()
+      void loadRoundRef.current()
+      void loadWinnersRef.current()
+      void loadSheetsRef.current()
+      void loadEventRef.current()
     }
     ws.onerror = () => {
       /* Backend offline ou proxy sem WS — evita ruído; o painel continua por HTTP */
+    }
+    const safeClose = () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.close(1000, 'cleanup')
+        } catch {
+          /* noop */
+        }
+        return
+      }
+      if (ws.readyState === WebSocket.CONNECTING) {
+        ws.addEventListener(
+          'open',
+          () => {
+            try {
+              ws.close(1000, 'cleanup')
+            } catch {
+              /* noop */
+            }
+          },
+          { once: true },
+        )
+      }
     }
     return () => {
       active = false
       ws.onmessage = null
       ws.onerror = null
-      try {
-        ws.close()
-      } catch {
-        /* noop */
-      }
+      safeClose()
     }
-  }, [eventId, token, loadRound, loadWinners, loadSheets, loadEvent])
+  }, [eventId, token])
 
   const downloadPdf = useCallback(async (sheetId: string) => {
     setPdfLoading(sheetId)

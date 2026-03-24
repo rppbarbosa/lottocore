@@ -1,5 +1,6 @@
 import { nanoid } from 'nanoid';
 import { pool } from '../db.js';
+import { parseSanitizedSaleBuyerPayload } from '../utils/buyerSaleSanitize.js';
 import { parseMoneyCents } from '../utils/moneyCents.js';
 import { fingerprintFromGrid, generateBingoGrid } from './bingoGrid.js';
 
@@ -127,7 +128,10 @@ export async function generateSheetsForEvent(eventId, count, cardsPerSheet = 5) 
 export async function listSheetsByEvent(eventId) {
   const { rows } = await pool.query(
     `SELECT s.id, s.sheet_number, s.sale_status, s.buyer_name, s.buyer_contact, s.sold_at,
-            s.buyer_email, s.buyer_whatsapp, s.buyer_address, s.buyer_cep, s.seller_name,
+            s.buyer_email, s.buyer_whatsapp, s.buyer_address, s.buyer_cep,
+            s.buyer_street, s.buyer_street_number, s.buyer_address_complement,
+            s.buyer_neighborhood, s.buyer_city, s.buyer_state,
+            s.seller_name,
             s.sale_price_cents, s.amount_paid_cents,
             s.public_token,
             (SELECT COUNT(*)::int FROM cards c WHERE c.sheet_id = s.id) AS card_count
@@ -151,10 +155,15 @@ export async function patchSheetSaleStatus(sheetId, next) {
        SET sale_status = 'cancelled',
            buyer_name = NULL, buyer_contact = NULL, sold_at = NULL,
            buyer_email = NULL, buyer_whatsapp = NULL, buyer_address = NULL, buyer_cep = NULL,
+           buyer_street = NULL, buyer_street_number = NULL, buyer_address_complement = NULL,
+           buyer_neighborhood = NULL, buyer_city = NULL, buyer_state = NULL,
            seller_name = NULL, sale_price_cents = NULL, amount_paid_cents = 0
        WHERE id = $1 AND sale_status IN ('available', 'sold')
        RETURNING id, event_id, sheet_number, sale_status, buyer_name, buyer_contact, sold_at,
-                 buyer_email, buyer_whatsapp, buyer_address, buyer_cep, seller_name,
+                 buyer_email, buyer_whatsapp, buyer_address, buyer_cep,
+                 buyer_street, buyer_street_number, buyer_address_complement,
+                 buyer_neighborhood, buyer_city, buyer_state,
+                 seller_name,
                  sale_price_cents, amount_paid_cents`,
       [sheetId]
     );
@@ -171,10 +180,15 @@ export async function patchSheetSaleStatus(sheetId, next) {
        SET sale_status = 'available',
            buyer_name = NULL, buyer_contact = NULL, sold_at = NULL,
            buyer_email = NULL, buyer_whatsapp = NULL, buyer_address = NULL, buyer_cep = NULL,
+           buyer_street = NULL, buyer_street_number = NULL, buyer_address_complement = NULL,
+           buyer_neighborhood = NULL, buyer_city = NULL, buyer_state = NULL,
            seller_name = NULL, sale_price_cents = NULL, amount_paid_cents = 0
        WHERE id = $1 AND sale_status = 'cancelled'
        RETURNING id, event_id, sheet_number, sale_status, buyer_name, buyer_contact, sold_at,
-                 buyer_email, buyer_whatsapp, buyer_address, buyer_cep, seller_name,
+                 buyer_email, buyer_whatsapp, buyer_address, buyer_cep,
+                 buyer_street, buyer_street_number, buyer_address_complement,
+                 buyer_neighborhood, buyer_city, buyer_state,
+                 seller_name,
                  sale_price_cents, amount_paid_cents`,
       [sheetId]
     );
@@ -190,27 +204,18 @@ export async function patchSheetSaleStatus(sheetId, next) {
   throw e;
 }
 
-function trimOrNull(v) {
-  if (typeof v !== 'string') return null;
-  const t = v.trim();
-  return t ? t : null;
-}
-
 /**
  * @param {string} sheetId
  * @param {Record<string, unknown>} body — camelCase ou snake_case
  */
 export async function markSheetSold(sheetId, body = {}) {
-  const name = trimOrNull(
-    body.buyerName ?? body.buyer_name ?? ''
-  );
-  const wa = trimOrNull(
-    body.buyerWhatsapp ?? body.buyer_whatsapp ?? body.buyerContact ?? body.buyer_contact ?? ''
-  );
-  const email = trimOrNull(body.buyerEmail ?? body.buyer_email ?? '');
-  const address = trimOrNull(body.buyerAddress ?? body.buyer_address ?? '');
-  const cep = trimOrNull(body.buyerCep ?? body.buyer_cep ?? '');
-  const seller = trimOrNull(body.sellerName ?? body.seller_name ?? '');
+  let buyer;
+  try {
+    buyer = parseSanitizedSaleBuyerPayload(body);
+  } catch (e) {
+    if (/** @type {{ statusCode?: number }} */ (e).statusCode) throw e;
+    throw e;
+  }
 
   const priceRaw = parseMoneyCents(body.salePriceCents ?? body.sale_price_cents, {
     allowUndefined: true,
@@ -234,7 +239,7 @@ export async function markSheetSold(sheetId, body = {}) {
   const sale_price_cents = priceRaw === undefined ? null : priceRaw;
   const amount_paid_cents = paidRaw;
 
-  const contactSync = wa;
+  const contactSync = buyer.buyer_whatsapp;
 
   const { rows } = await pool.query(
     `UPDATE sheets
@@ -248,22 +253,37 @@ export async function markSheetSold(sheetId, body = {}) {
          seller_name = $8,
          sale_price_cents = $9,
          amount_paid_cents = $10,
+         buyer_street = $11,
+         buyer_street_number = $12,
+         buyer_address_complement = $13,
+         buyer_neighborhood = $14,
+         buyer_city = $15,
+         buyer_state = $16,
          sold_at = NOW()
      WHERE id = $1 AND sale_status = 'available'
      RETURNING id, event_id, sheet_number, sale_status, buyer_name, buyer_contact, sold_at,
-               buyer_email, buyer_whatsapp, buyer_address, buyer_cep, seller_name,
+               buyer_email, buyer_whatsapp, buyer_address, buyer_cep,
+               buyer_street, buyer_street_number, buyer_address_complement,
+               buyer_neighborhood, buyer_city, buyer_state,
+               seller_name,
                sale_price_cents, amount_paid_cents`,
     [
       sheetId,
-      name,
+      buyer.buyer_name,
       contactSync,
-      wa,
-      email,
-      address,
-      cep,
-      seller,
+      buyer.buyer_whatsapp,
+      buyer.buyer_email,
+      buyer.buyer_address,
+      buyer.buyer_cep,
+      buyer.seller_name,
       sale_price_cents,
       amount_paid_cents,
+      buyer.buyer_street,
+      buyer.buyer_street_number,
+      buyer.buyer_address_complement,
+      buyer.buyer_neighborhood,
+      buyer.buyer_city,
+      buyer.buyer_state,
     ]
   );
   if (!rows.length) {
@@ -280,14 +300,13 @@ export async function markSheetSold(sheetId, body = {}) {
  * @param {Record<string, unknown>} body
  */
 export async function updateSheetSaleDetails(sheetId, body) {
-  const name = trimOrNull(body.buyerName ?? body.buyer_name ?? '');
-  const wa = trimOrNull(
-    body.buyerWhatsapp ?? body.buyer_whatsapp ?? body.buyerContact ?? body.buyer_contact ?? ''
-  );
-  const email = trimOrNull(body.buyerEmail ?? body.buyer_email ?? '');
-  const address = trimOrNull(body.buyerAddress ?? body.buyer_address ?? '');
-  const cep = trimOrNull(body.buyerCep ?? body.buyer_cep ?? '');
-  const seller = trimOrNull(body.sellerName ?? body.seller_name ?? '');
+  let buyer;
+  try {
+    buyer = parseSanitizedSaleBuyerPayload(body);
+  } catch (e) {
+    if (/** @type {{ statusCode?: number }} */ (e).statusCode) throw e;
+    throw e;
+  }
 
   const priceRaw = parseMoneyCents(body.salePriceCents ?? body.sale_price_cents, {
     allowUndefined: true,
@@ -310,7 +329,7 @@ export async function updateSheetSaleDetails(sheetId, body) {
 
   const sale_price_cents = priceRaw === undefined ? null : priceRaw;
   const amount_paid_cents = paidRaw;
-  const contactSync = wa;
+  const contactSync = buyer.buyer_whatsapp;
 
   const { rows } = await pool.query(
     `UPDATE sheets
@@ -322,22 +341,37 @@ export async function updateSheetSaleDetails(sheetId, body) {
          buyer_cep = $7,
          seller_name = $8,
          sale_price_cents = $9,
-         amount_paid_cents = $10
+         amount_paid_cents = $10,
+         buyer_street = $11,
+         buyer_street_number = $12,
+         buyer_address_complement = $13,
+         buyer_neighborhood = $14,
+         buyer_city = $15,
+         buyer_state = $16
      WHERE id = $1 AND sale_status = 'sold'
      RETURNING id, event_id, sheet_number, sale_status, buyer_name, buyer_contact, sold_at,
-               buyer_email, buyer_whatsapp, buyer_address, buyer_cep, seller_name,
+               buyer_email, buyer_whatsapp, buyer_address, buyer_cep,
+               buyer_street, buyer_street_number, buyer_address_complement,
+               buyer_neighborhood, buyer_city, buyer_state,
+               seller_name,
                sale_price_cents, amount_paid_cents`,
     [
       sheetId,
-      name,
+      buyer.buyer_name,
       contactSync,
-      wa,
-      email,
-      address,
-      cep,
-      seller,
+      buyer.buyer_whatsapp,
+      buyer.buyer_email,
+      buyer.buyer_address,
+      buyer.buyer_cep,
+      buyer.seller_name,
       sale_price_cents,
       amount_paid_cents,
+      buyer.buyer_street,
+      buyer.buyer_street_number,
+      buyer.buyer_address_complement,
+      buyer.buyer_neighborhood,
+      buyer.buyer_city,
+      buyer.buyer_state,
     ]
   );
   if (!rows.length) {

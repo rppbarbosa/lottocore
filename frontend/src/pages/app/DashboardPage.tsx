@@ -21,6 +21,7 @@ import { useDashboardEvent } from '@/context/DashboardEventContext'
 import { EVENT_WORKSPACE_SEGMENTS } from '@/lib/event-nav'
 import { ApiError, apiJson } from '@/lib/api'
 import { formatBRLFromCents } from '@/lib/formatMoney'
+import { eventStatusLabel } from '@/lib/eventStatus'
 
 type Health = { ok?: boolean; database?: string }
 
@@ -217,7 +218,7 @@ export default function DashboardPage() {
             >
               {events.map((ev) => (
                 <option key={ev.id} value={ev.id}>
-                  {ev.name} ({ev.status})
+                  {ev.name} ({eventStatusLabel(ev.status)})
                 </option>
               ))}
             </select>

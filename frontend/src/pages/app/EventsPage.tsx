@@ -14,6 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { ApiError, apiJson } from '@/lib/api'
+import { eventStatusLabel } from '@/lib/eventStatus'
 
 type EventRow = {
   id: string
@@ -97,7 +98,7 @@ export default function EventsPage() {
                   <TableRow key={ev.id}>
                     <TableCell className="font-medium">{ev.name}</TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant(ev.status)}>{ev.status}</Badge>
+                      <Badge variant={statusVariant(ev.status)}>{eventStatusLabel(ev.status)}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" asChild>

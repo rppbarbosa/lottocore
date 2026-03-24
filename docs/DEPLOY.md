@@ -233,6 +233,10 @@ O workflow `.github/workflows/ci.yml` corre em cada *push* / PR para `main`: ins
 | 502 em `/api` | Nginx não alcança `backend:3000`; confirme que o serviço `backend` está `healthy` / `running` |
 | PDF falha no contentor | Chromium está na imagem; `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium` (definido no Dockerfile) |
 | WebSocket não liga | Proxy `/ws` com `Upgrade`; mesmo domínio que o site; em HTTPS use `wss://` (Traefik termina TLS) |
+| Browser mostra “Não seguro” / certificado Traefik | O Traefik usa **TLS-ALPN** (`tlschallenge` no `/root/docker-compose.yml`). Com DNS **A** correto para o host, o certificado Let's Encrypt fica em `acme.json`. Valide na VPS com `openssl s_client` na porta **443** e SNI igual ao domínio; o *issuer* deve ser Let's Encrypt. Causas comuns nos logs: **NXDOMAIN** (DNS ainda não propagado) e **429** (*rate limit* — esperar ~1 h e reiniciar o Traefik do stack root se preciso). |
+| Login devolve **401** com “credenciais que deveriam estar certas” | A tabela `users` pode estar **vazia** (primeiro deploy). Crie conta em **`/register`** no site; não há utilizador pré-definido na BD. |
+| Ligar ao PostgreSQL a partir do host | Utilizador e base por defeito **`bingo`**; senha: **`POSTGRES_PASSWORD`** em **`lottocore/.env`**. No host, porta publicada por defeito **`5440`** → 5432 no contentor (`PUBLISH_POSTGRES_PORT`). Ex.: `psql "postgresql://bingo:SENHA@127.0.0.1:5440/bingo"`. Dentro da rede Docker, use o hostname **`postgres`** como em `DATABASE_URL`. |
+| Copiar a BD do PC para a VPS | No PC: `pg_dump -h 127.0.0.1 -p 5433 -U bingo -d bingo -Fc -f lottocore.dump` (ajuste porta/senha ao `.env` local). Envie o ficheiro para a VPS (`scp`, etc.) e na raiz do repo: **`./scripts/import-pg-dump-into-docker.sh /caminho/lottocore.dump`**. O login da app usa as linhas da tabela **`users`** (não confundir com `POSTGRES_PASSWORD`). |
 
 ## 10. Base de dados única
 

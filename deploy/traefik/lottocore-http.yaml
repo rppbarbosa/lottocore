@@ -13,6 +13,8 @@ http:
       service: lottocore-web-svc
       tls:
         certResolver: mytlschallenge
+        domains:
+          - main: lottocore.atus.tech
   services:
     lottocore-web-svc:
       loadBalancer:

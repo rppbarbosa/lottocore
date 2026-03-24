@@ -187,7 +187,7 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
   const printFooterBlock = `<footer class="sheet-print-footer">${sheetQrBlock}${footerImageBlock}${footerBlock}</footer>`;
 
   const useWatermark =
-    ps.backgroundImageDataUrl && (renderMode === 'pdf' || renderMode === 'jpeg');
+    ps.backgroundImageDataUrl && (renderMode === 'pdf' || renderMode === 'jpeg' || renderMode === 'png');
   const wmOpacity =
     ps.backgroundOpacity != null && Number.isFinite(ps.backgroundOpacity)
       ? ps.backgroundOpacity
@@ -218,7 +218,8 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
       font-size: 9pt;
     }
     body.mode-pdf { background: #fff; }
-    body.mode-png { background: transparent; }
+    /* PNG/JPEG: mesmo fundo que o PDF para padronizar exportação (antes: PNG transparente destoava) */
+    body.mode-png { background: #fff; }
     body.mode-jpeg { background: #fff; }
 
     /* PDF: sangria total da marca d'água (sem faixa branca nas bordas); conteúdo mantém recuo ~8 mm */
@@ -253,6 +254,21 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
       height: 297mm;
       inset: auto;
       z-index: 0;
+    }
+    /* Raster: folha A4 lógica com marca d'água a cobrir toda a área (como no PDF) */
+    body.mode-png .sheet-root--layered,
+    body.mode-jpeg .sheet-root--layered {
+      position: relative;
+      min-height: 297mm;
+    }
+    body.mode-png .sheet-watermark,
+    body.mode-jpeg .sheet-watermark {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      min-height: 297mm;
+      background-size: cover;
+      background-position: center;
     }
     .sheet-root__front {
       position: relative;
@@ -302,10 +318,6 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
       min-height: 24mm;
       width: 100%;
       margin-top: 2mm;
-    }
-    body.mode-png .sheet-slot--top,
-    body.mode-png .sheet-slot--bottom {
-      background: transparent;
     }
 
     .sheet-header-bar {
@@ -374,6 +386,58 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
       margin-top: 0.35mm;
       line-height: 1.25;
     }
+    /* Raster: mesmo encarte do banner e badge absoluto que no PDF (largura útil 194mm) */
+    body.mode-png .sheet-header-bar,
+    body.mode-jpeg .sheet-header-bar {
+      margin-top: 0;
+      margin-bottom: 0;
+      flex-shrink: 0;
+    }
+    body.mode-png .sheet-header-bleed-wrap,
+    body.mode-jpeg .sheet-header-bleed-wrap {
+      display: block;
+      position: relative;
+      width: 100%;
+    }
+    body.mode-png .sheet-header-bleed-wrap .sheet-header-bar__left,
+    body.mode-jpeg .sheet-header-bleed-wrap .sheet-header-bar__left {
+      width: 100%;
+    }
+    body.mode-png .sheet-header-bleed-wrap .sheet-number-badge,
+    body.mode-jpeg .sheet-header-bleed-wrap .sheet-number-badge {
+      position: absolute;
+      top: 7mm;
+      right: 0;
+      z-index: 3;
+    }
+    body.mode-png .sheet-header-bleed-wrap .print-banner,
+    body.mode-jpeg .sheet-header-bleed-wrap .print-banner {
+      width: 100%;
+      max-width: none;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+    body.mode-png .sheet-header-bleed-wrap .banner-img,
+    body.mode-jpeg .sheet-header-bleed-wrap .banner-img {
+      width: 100%;
+      max-width: 100%;
+      max-height: 70mm;
+      height: auto;
+      object-fit: contain;
+      object-position: center;
+      display: block;
+      margin: 0 auto;
+    }
+    body.mode-png .sheet-header-bleed-wrap .banner-subtitle,
+    body.mode-jpeg .sheet-header-bleed-wrap .banner-subtitle {
+      margin-top: 0.35mm;
+      line-height: 1.25;
+    }
     .sheet-number-badge {
       flex-shrink: 0;
       align-self: flex-start;
@@ -394,20 +458,21 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
       font-weight: 800;
       letter-spacing: 0.08em;
     }
-    body.mode-png .sheet-number-badge,
-    body.mode-jpeg .sheet-number-badge {
-      background: rgba(255, 255, 255, 0.92);
-    }
-
     /* PDF: sem faixa personalizada, não reservar 26mm vazios no topo nem 24mm em baixo */
-    body.mode-pdf .sheet-slot--top:empty {
+    body.mode-pdf .sheet-slot--top:empty,
+    body.mode-png .sheet-slot--top:empty,
+    body.mode-jpeg .sheet-slot--top:empty {
       display: none;
     }
     /* PDF: sem reserva vertical extra — a imagem define a altura */
-    body.mode-pdf .sheet-slot--top:not(:empty) {
+    body.mode-pdf .sheet-slot--top:not(:empty),
+    body.mode-png .sheet-slot--top:not(:empty),
+    body.mode-jpeg .sheet-slot--top:not(:empty) {
       min-height: 0;
     }
-    body.mode-pdf .sheet-slot--bottom {
+    body.mode-pdf .sheet-slot--bottom,
+    body.mode-png .sheet-slot--bottom,
+    body.mode-jpeg .sheet-slot--bottom {
       min-height: 0;
       margin-top: 0;
       flex-shrink: 0;
@@ -452,33 +517,24 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
       object-position: center;
       margin: 0 auto;
     }
-    body.mode-pdf .footer-banner-img {
+    body.mode-pdf .footer-banner-img,
+    body.mode-png .footer-banner-img,
+    body.mode-jpeg .footer-banner-img {
       max-height: 58mm;
     }
 
-    /* Painel da cartela: PNG/JPEG transparentes; PDF com moldura leve */
+    /* Painel da cartela: igual em PDF, PNG e JPEG (moldura e fundo #fafafa) */
     .card-panel {
-      background: #fff;
-      padding: 1.25mm;
+      background: #fafafa;
+      padding: 2.2mm 3.25mm;
+      border: 0.5pt solid #d8d8d8;
+      border-radius: 1.2mm;
       display: flex;
       flex-direction: column;
       align-items: stretch;
       gap: 0;
       width: 100%;
       box-sizing: border-box;
-    }
-    body.mode-pdf .card-panel {
-      background: #fafafa;
-      padding: 2.2mm 3.25mm;
-      border: 0.5pt solid #d8d8d8;
-      border-radius: 1.2mm;
-    }
-    body.mode-png .card-panel,
-    body.mode-jpeg .card-panel {
-      background: transparent;
-      padding: 0;
-      box-shadow: none;
-      outline: none;
     }
 
     .card-main {
@@ -490,68 +546,26 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
     }
 
     body.mode-pdf .sheet-body.compact .card-panel,
-    body.mode-pdf .sheet-body.layout-1 .card-panel {
+    body.mode-pdf .sheet-body.layout-1 .card-panel,
+    body.mode-png .sheet-body.compact .card-panel,
+    body.mode-png .sheet-body.layout-1 .card-panel,
+    body.mode-jpeg .sheet-body.compact .card-panel,
+    body.mode-jpeg .sheet-body.layout-1 .card-panel {
       align-items: center;
     }
     body.mode-pdf .sheet-body.compact .card-main,
-    body.mode-pdf .sheet-body.layout-1 .card-main {
-      align-items: center;
-      width: 100%;
-    }
-    body.mode-pdf .bingo-grid th,
-    body.mode-pdf .bingo-grid td {
-      font-size: 10pt;
-    }
-    body.mode-pdf .bingo-grid thead th {
-      font-size: 9pt;
-    }
-    body.mode-pdf .sheet-body .bingo-grid {
-      flex-shrink: 0;
-    }
-
-    body.mode-png .bingo-grid,
-    body.mode-jpeg .bingo-grid {
-      background: #fff;
-    }
-    body.mode-png .bingo-grid thead th,
-    body.mode-png .bingo-grid tbody td,
-    body.mode-jpeg .bingo-grid thead th,
-    body.mode-jpeg .bingo-grid tbody td {
-      background-color: #fff !important;
-    }
-
-    body.mode-png .sheet-body.compact .card-panel,
-    body.mode-jpeg .sheet-body.compact .card-panel {
-      align-items: center;
-      width: 100%;
-    }
+    body.mode-pdf .sheet-body.layout-1 .card-main,
     body.mode-png .sheet-body.compact .card-main,
-    body.mode-jpeg .sheet-body.compact .card-main,
     body.mode-png .sheet-body.layout-1 .card-main,
+    body.mode-jpeg .sheet-body.compact .card-main,
     body.mode-jpeg .sheet-body.layout-1 .card-main {
       align-items: center;
       width: 100%;
     }
-
-    body.mode-png .bingo-grid th,
-    body.mode-png .bingo-grid td,
-    body.mode-jpeg .bingo-grid th,
-    body.mode-jpeg .bingo-grid td {
-      vertical-align: middle;
-      font-size: 9.25pt;
-    }
-    body.mode-png .bingo-grid thead th,
-    body.mode-jpeg .bingo-grid thead th {
-      font-size: 8.25pt;
-    }
-
-    body.mode-png .round-title,
-    body.mode-jpeg .round-title {
-      background: transparent;
-    }
-    body.mode-png .card-main,
-    body.mode-jpeg .card-main {
-      background: transparent;
+    body.mode-pdf .sheet-body .bingo-grid,
+    body.mode-png .sheet-body .bingo-grid,
+    body.mode-jpeg .sheet-body .bingo-grid {
+      flex-shrink: 0;
     }
 
     /* Células quadradas — mesmo tamanho em todos os modelos (1 a 5 cartelas + stack) */
@@ -616,7 +630,7 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
       min-height: var(--cell);
       max-width: var(--cell);
       max-height: var(--cell);
-      font-size: 9.25pt;
+      font-size: 10pt;
       font-weight: 700;
       padding: 0;
       line-height: 1;
@@ -625,7 +639,7 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
     .bingo-grid thead th {
       background: #e8e8e8;
       color: #111;
-      font-size: 8.25pt;
+      font-size: 9pt;
       font-weight: 800;
     }
 
@@ -676,15 +690,27 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
       align-items: flex-start;
       gap: 7mm;
     }
-    /* PDF: zona útil entre cabeçalho e rodapé — o corpo cresce e centra as cartelas (evita faixa branca entre conteúdo e rodapé com poucas cartelas) */
-    body.mode-pdf .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body {
+    /* PNG/JPEG: mesma coluna flex A4 que o PDF (PDF já define em .sheet-root__front acima) */
+    body.mode-png .sheet-root__front:not(:has(.sheet-body.layout-stack)),
+    body.mode-jpeg .sheet-root__front:not(:has(.sheet-body.layout-stack)) {
+      min-height: 297mm;
+      display: flex;
+      flex-direction: column;
+      box-sizing: border-box;
+      padding: 0;
+    }
+    body.mode-pdf .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body,
+    body.mode-png .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body,
+    body.mode-jpeg .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body {
       flex: 1 1 auto;
       min-height: 0;
       align-self: stretch;
       margin-top: 0;
       margin-bottom: 0;
     }
-    body.mode-pdf .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-1 {
+    body.mode-pdf .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-1,
+    body.mode-png .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-1,
+    body.mode-jpeg .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-1 {
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -692,13 +718,23 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
     }
     body.mode-pdf .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-2,
     body.mode-pdf .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-3,
-    body.mode-pdf .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-4 {
+    body.mode-pdf .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-4,
+    body.mode-png .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-2,
+    body.mode-png .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-3,
+    body.mode-png .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-4,
+    body.mode-jpeg .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-2,
+    body.mode-jpeg .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-3,
+    body.mode-jpeg .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-4 {
       align-content: center;
     }
-    body.mode-pdf .layout-5-row {
+    body.mode-pdf .layout-5-row,
+    body.mode-png .layout-5-row,
+    body.mode-jpeg .layout-5-row {
       gap: 5mm;
     }
-    body.mode-pdf .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-5 {
+    body.mode-pdf .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-5,
+    body.mode-png .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-5,
+    body.mode-jpeg .sheet-root__front:not(:has(.sheet-body.layout-stack)) .sheet-body.layout-5 {
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -732,14 +768,15 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
       page-break-inside: avoid;
       text-align: center;
     }
-    body.mode-pdf .print-footer-banner {
+    body.mode-pdf .print-footer-banner,
+    body.mode-png .print-footer-banner,
+    body.mode-jpeg .print-footer-banner {
       margin-top: 0;
       margin-bottom: 0;
     }
-    body.mode-png .sheet-print-footer,
-    body.mode-jpeg .sheet-print-footer {
-      border-top: none;
-      padding-top: 1mm;
+    body.mode-png .sheet-root__front .sheet-print-footer,
+    body.mode-jpeg .sheet-root__front .sheet-print-footer {
+      flex-shrink: 0;
     }
 
     .sheet-qr-wrap {
@@ -753,7 +790,9 @@ function buildHtml({ sheetNumber, cards, sheetQrDataUrl, printSettings, renderMo
       border: 0.4pt solid #ddd;
       box-sizing: border-box;
     }
-    body.mode-pdf .sheet-qr-wrap {
+    body.mode-pdf .sheet-qr-wrap,
+    body.mode-png .sheet-qr-wrap,
+    body.mode-jpeg .sheet-qr-wrap {
       margin: 0 auto;
       padding: 0.65mm 1mm 0.5mm;
     }
@@ -873,11 +912,8 @@ async function buildSheetHtmlForBrowser(sheetId, renderMode) {
   const qrOpts = {
     width: 280,
     margin: 1,
-    errorCorrectionLevel: renderMode === 'pdf' ? 'H' : 'M',
+    errorCorrectionLevel: 'H',
   };
-  if (renderMode === 'png') {
-    qrOpts.color = { dark: '#000000', light: '#00000000' };
-  }
   const sheetQrDataUrl = await QRCode.toDataURL(sheetUrl, qrOpts);
 
   const html = buildHtml({
@@ -916,7 +952,7 @@ export async function generateSheetPdfBuffer(sheetId) {
 const RASTER_VIEWPORT_WIDTH_PX = 734;
 
 /**
- * Imagem da folha (raster), retrato. PNG: transparente exceto células da grelha. JPEG: página branca, só grelha em “cartela”.
+ * Imagem da folha (raster), retrato A4 lógico. PNG e JPEG usam o mesmo HTML/CSS que o PDF (marca d'água, painéis, tipografia).
  * @param {'png'|'jpeg'} format
  */
 export async function generateSheetRasterBuffer(sheetId, format) {
@@ -934,7 +970,7 @@ export async function generateSheetRasterBuffer(sheetId, format) {
   try {
     await page.setViewport({
       width: RASTER_VIEWPORT_WIDTH_PX,
-      height: 520,
+      height: 1123,
       deviceScaleFactor: 2,
     });
     await page.setContent(html, { waitUntil: 'load', timeout: 45_000 });
@@ -951,7 +987,7 @@ export async function generateSheetRasterBuffer(sheetId, format) {
         : await page.screenshot({
             type: 'png',
             fullPage: true,
-            omitBackground: true,
+            omitBackground: false,
           });
 
     const buffer = Buffer.isBuffer(shot) ? shot : Buffer.from(shot);

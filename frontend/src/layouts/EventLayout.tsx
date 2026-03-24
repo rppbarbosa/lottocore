@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { EventWorkspaceProvider, useEventWorkspace } from '@/context/EventWorkspaceContext'
 import { EVENT_WORKSPACE_SEGMENTS } from '@/lib/event-nav'
+import { eventStatusLabel } from '@/lib/eventStatus'
 import { cn } from '@/lib/utils'
 
 function EventLayoutShell() {
@@ -49,7 +50,7 @@ function EventLayoutShell() {
             {ctx.eventName || 'Evento'}
           </h2>
           <div className="text-sm text-muted-foreground">
-            <Badge variant="outline">{ctx.eventStatus}</Badge>{' '}
+            <Badge variant="outline">{eventStatusLabel(ctx.eventStatus)}</Badge>{' '}
             <span className="ml-2 font-mono text-xs">{eventId}</span>
           </div>
         </div>
