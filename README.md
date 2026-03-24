@@ -20,13 +20,13 @@ Ficheiros principais:
 
 | Ficheiro | Descrição |
 |----------|-----------|
-| `docker-compose.yml` | Produção: Postgres + API + Nginx (UI com proxy `/api` e `/ws`) |
+| `docker-compose.yml` | Produção: Postgres + API + Nginx; `name: lottocore` (stack próprio no painel) |
 | `docker-compose.postgres-dev.yml` | Só Postgres local (dev, porta 5433) |
 | `backend/Dockerfile` | API com Chromium para PDFs |
 | `frontend/Dockerfile` | Build Vite + Nginx |
 | `env.production.template` | Variáveis para copiar para `.env` na VPS |
 
-Resumo: na VPS, `cp env.production.template .env`, preencher segredos, depois `docker compose up -d --build`. Scripts opcionais: `./scripts/deploy-vps.sh` (Linux, na VPS) e `.\scripts\deploy-remote.ps1` (Windows → SSH para a VPS). Ver [docs/DEPLOY.md](docs/DEPLOY.md) §4.
+Resumo: na VPS, rede `root_default` (Traefik), `cp env.production.template .env`, `./scripts/deploy-vps.sh` ou `docker compose up -d --build` na pasta do repo. Windows → VPS: `.\scripts\deploy-remote.ps1`. Ver [docs/DEPLOY.md](docs/DEPLOY.md) §4.
 
 ## Pré-requisitos
 

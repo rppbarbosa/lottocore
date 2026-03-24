@@ -1,8 +1,21 @@
 # Stack de produção: PostgreSQL + API + Nginx (UI com proxy /api e /ws).
-# Usado por painéis que só leem docker-compose.yml (ex.: Hostinger Docker Manager).
+# Projeto Compose: lottocore (name abaixo) — aparece assim no painel Hostinger / Docker Manager.
+# Traefik continua no stack root (/root/docker-compose.yml); este stack só liga à rede root_default.
 #
-# Na VPS: cp env.production.template .env e preencha segredos.
-# Depois: docker compose up -d --build
+# Na VPS: cp env.production.template .env; rede do Traefik:
+#   docker network create root_default 2>/dev/null || true
+# Depois, na pasta do repo: docker compose up -d --build
+#
+# DNS: apontar APP_HOST (ex. lottocore.atus.tech) para o IP da VPS.
+# Acesso direto por porta (sem Traefik): ver docker-compose.publish.yml
+
+name: lottocore
+
+networks:
+  default:
+  traefik:
+    external: true
+    name: ${TRAEFIK_NETWORK:-root_default}
 
 services:
   postgres:
@@ -46,9 +59,24 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
-    ports:
-      - '${HTTP_PORT:-8080}:80'
+    networks:
+      - default
+      - traefik
+    labels:
+      # Alinhado ao Nexus (/root Traefik já redireciona web → websecure)
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_NETWORK:-root_default}
+      - traefik.http.routers.lottocore.rule=Host(`${APP_HOST:-lottocore.atus.tech}`)
+      - traefik.http.routers.lottocore.entrypoints=web,websecure
+      - traefik.http.routers.lottocore.tls=true
+      - traefik.http.routers.lottocore.tls.certresolver=${TRAEFIK_CERTRESOLVER:-mytlschallenge}
+      - traefik.http.services.lottocore.loadbalancer.server.port=80
 
 volumes:
+  # Nomes fixos na VPS. Primeira vez: docker volume create lottocore_pgdata && docker volume create lottocore_uploads
   lottocore_pgdata:
+    external: true
+    name: lottocore_pgdata
   lottocore_uploads:
+    external: true
+    name: lottocore_uploads

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Deploy na VPS — padrão alinhado ao Nexus (sothia-legal-nexus/deploy.sh):
-#   git pull origin main → docker compose build → up -d → ps
+# Deploy na pasta do repositório (projeto Compose: lottocore — ver name: no docker-compose.yml).
+# git pull → volumes nomeados → docker compose build → up -d
 # Uso: na raiz do repositório: ./scripts/deploy-vps.sh
+# Atalho legado: ./scripts/deploy-root-merged.sh chama este script.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -28,6 +29,10 @@ if ! git pull origin main; then
   exit 1
 fi
 echo -e "${GREEN}Código atualizado.${NC}"
+
+echo -e "${YELLOW}Garantir volumes nomeados (docker-compose.yml usa external: true)...${NC}"
+docker volume inspect lottocore_pgdata >/dev/null 2>&1 || docker volume create lottocore_pgdata
+docker volume inspect lottocore_uploads >/dev/null 2>&1 || docker volume create lottocore_uploads
 
 echo -e "${YELLOW}A construir imagens e a recriar contentores...${NC}"
 docker compose build

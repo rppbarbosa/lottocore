@@ -18,6 +18,9 @@ if (config.nodeEnv === 'production' && !process.env.JWT_SECRET) {
 }
 
 const app = express();
+if (config.nodeEnv === 'production') {
+  app.set('trust proxy', 1);
+}
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: '24mb' }));
 

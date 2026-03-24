@@ -32,7 +32,27 @@ O browser fala sempre com o **mesmo host** (Nginx), o que evita problemas de COR
 
 - Ubuntu 22.04/24.04 LTS ou similar.
 - [Docker Engine](https://docs.docker.com/engine/install/) + [Docker Compose plugin](https://docs.docker.com/compose/install/linux/).
-- Firewall: abrir a porta escolhida (ex.: `8080`) ou `80`/`443` se usar Traefik na frente.
+- **`docker-compose.yml` define `name: lottocore`**: no Docker Manager da Hostinger o projeto aparece como **lottocore** (como comissao360, sothia-legal-nexus, etc.), **não** dentro do stack **root**.
+- **Traefik** continua no stack **`root`** (`/root/docker-compose.yml`). O LottoCore só **liga** o `frontend` à rede externa **`root_default`**; não mistura serviços no mesmo ficheiro Compose que o Traefik.
+- **`deploy-vps.sh`** cria os volumes nomeados `lottocore_pgdata` e `lottocore_uploads` se ainda não existirem, depois corre `docker compose up -d --build` na pasta do repositório.
+- **Acesso direto por IP:porta** (depuração): `docker compose -f docker-compose.yml -f docker-compose.publish.yml up -d` e `HTTP_PORT` no `.env`.
+
+### Rede do Traefik
+
+O contentor `frontend` tem de estar na mesma rede Docker que o Traefik. O ficheiro usa por defeito `TRAEFIK_NETWORK=root_default`. Se o seu Traefik estiver noutra rede, defina `TRAEFIK_NETWORK` no `.env`. Confirme o nome com:
+
+```bash
+docker network ls | grep -E 'root|traefik'
+```
+
+### VPS com vários projetos (portas)
+
+PostgreSQL e o backend **não** publicam portas no host. Só há conflito se usar `docker-compose.publish.yml`; nesse caso escolha um `HTTP_PORT` livre (ex.: `8092`).
+
+```bash
+ss -tlnp
+docker ps --format '{{.Names}}\t{{.Ports}}'
+```
 
 ```bash
 sudo apt update && sudo apt install -y git
@@ -40,7 +60,7 @@ mkdir -p ~/apps && cd ~/apps
 git clone https://github.com/SEU_USUARIO/LottoCore.git
 cd LottoCore
 cp env.production.template .env
-nano .env   # ou vim: preencher POSTGRES_PASSWORD, JWT_SECRET, DATABASE_URL, PUBLIC_APP_URL, HTTP_PORT
+nano .env   # POSTGRES_PASSWORD, JWT_SECRET, DATABASE_URL, APP_HOST, PUBLIC_APP_URL, TRAEFIK_*
 ```
 
 **`DATABASE_URL` em Docker** tem de usar o hostname **`postgres`** (nome do serviço no Compose), não `127.0.0.1`:
@@ -49,7 +69,7 @@ nano .env   # ou vim: preencher POSTGRES_PASSWORD, JWT_SECRET, DATABASE_URL, PUB
 DATABASE_URL=postgresql://bingo:SUA_SENHA@postgres:5432/bingo
 ```
 
-**`PUBLIC_APP_URL`** deve ser a URL **pública** que os jogadores e o QR code usam (ex.: `https://bingo.exemplo.pt`), sem barra no fim.
+**`PUBLIC_APP_URL`** e **`APP_HOST`**: URL pública HTTPS e hostname do Traefik (ex.: `https://lottocore.atus.tech` e `lottocore.atus.tech`). Crie o registo **DNS A** (ou AAAA) para `APP_HOST` apontar para o IP da VPS antes de pedir certificado Let's Encrypt.
 
 **`JWT_SECRET`**: em produção é obrigatório (o backend recusa arrancar sem ele). Gere por exemplo:
 
@@ -74,17 +94,34 @@ Substitua `root` pelo utilizador real (ex.: `ubuntu`, `debian`) e `IP_DA_VPS` pe
 3. Clone o repositório com **URL SSH** e a [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys) que configurou no GitHub (chave privada em `~/.ssh/` no servidor, `~/.ssh/config` com `Host github.com-lottocore` se usar alias).
 4. Copie `env.production.template` → `.env` e preencha variáveis (igual à secção 3).
 
-Caminho típico no servidor: `~/apps/lottocore` ou `/root/lottocore`.
+Caminho típico no servidor: `~/apps/lottocore` ou **`/root/lottocore`** (alinhado ao Nexus em `/root/sothia-legal-nexus`).
 
 ### 4.2 Primeiro arranque (na sessão SSH)
 
+Na pasta do repositório (ex.: `/root/lottocore`):
+
 ```bash
-cd ~/apps/lottocore   # ajuste ao seu caminho
+docker network create root_default 2>/dev/null || true
+cp env.production.template .env
+nano .env   # POSTGRES_PASSWORD, JWT_SECRET, DATABASE_URL, APP_HOST, PUBLIC_APP_URL
+chmod +x scripts/deploy-vps.sh
+./scripts/deploy-vps.sh
+```
+
+Ou manualmente (o script faz o mesmo, incluindo criar volumes se faltarem):
+
+```bash
+cd ~/apps/lottocore   # ou /root/lottocore
+docker network create root_default 2>/dev/null || true
+docker volume create lottocore_pgdata 2>/dev/null || true
+docker volume create lottocore_uploads 2>/dev/null || true
 docker compose build
 docker compose up -d
 docker compose ps
 docker compose logs -f --tail=50 backend
 ```
+
+**Migração** se ainda tiver dados só em volumes antigos `root_lottocore_pgdata` / `root_lottocore_uploads`: pare e apague os contentores antigos do LottoCore no stack `root`, crie `lottocore_pgdata` e `lottocore_uploads` e copie com um contentor `alpine` de `/old` para `/new` (igual a uma cópia de ficheiros entre volumes); depois suba só com `docker compose` na pasta do repo.
 
 Estes comandos **não** passam por painéis que injetam `--quiet-build`, por isso contornam o erro de alguns *hostings* geridos.
 
@@ -161,38 +198,13 @@ o problema é a **versão do Docker Compose** no servidor do painel: o *wrapper*
    Estes comandos **não** usam `--quiet-build`.
 3. Garantir que existe um **`.env`** no repositório na máquina de build com `POSTGRES_PASSWORD`, `JWT_SECRET`, `DATABASE_URL` (host `postgres`), `PUBLIC_APP_URL`, etc.; caso contrário o Compose pode falhar ao validar variáveis.
 
-## 7. Traefik (opcional)
+## 7. Traefik
 
-Se já usa Traefik na mesma VPS:
+1. **`/root/docker-compose.yml`**: Traefik com redirecionamento global **HTTP → HTTPS**; *resolver* típico **`mytlschallenge`**.
+2. **LottoCore** (`name: lottocore`): o `frontend` entra na rede **`root_default`** e usa labels **`entrypoints=web,websecure`**, **`tls=true`** e **`certresolver`** (`TRAEFIK_CERTRESOLVER` no `.env`, por defeito `mytlschallenge`) — mesmo estilo que outros projetos atrás do mesmo Traefik.
+3. DNS: `APP_HOST` → IP da VPS.
 
-1. Crie/edite a rede externa que o Traefik usa (ex.: `root_default`).
-2. No `docker-compose.yml`, no serviço `frontend`:
-   - Remova ou comente `ports`.
-   - Adicione `networks: [default, traefik]` e labels semelhantes a:
-
-```yaml
-networks:
-  default:
-  traefik_net:
-    external: true
-    name: root_default
-
-services:
-  frontend:
-    # ports: ...
-    networks:
-      - default
-      - traefik_net
-    labels:
-      - traefik.enable=true
-      - traefik.http.routers.lottocore.rule=Host(`bingo.seudominio.com`)
-      - traefik.http.routers.lottocore.entrypoints=websecure
-      - traefik.http.routers.lottocore.tls=true
-      - traefik.http.routers.lottocore.tls.certresolver=myresolver
-      - traefik.http.services.lottocore.loadbalancer.server.port=80
-```
-
-Ajuste `Host`, `entrypoints`, `certresolver` ao seu `docker-compose` do Traefik. O router deve apontar para a **porta 80 do contentor** `frontend` (Nginx interno).
+Sem Traefik (só teste): `docker compose -f docker-compose.yml -f docker-compose.publish.yml up -d` e defina `HTTP_PORT`.
 
 ## 8. CI no GitHub Actions
 
