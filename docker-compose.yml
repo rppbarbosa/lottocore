@@ -62,15 +62,7 @@ services:
     networks:
       - default
       - traefik
-    labels:
-      # Alinhado ao Nexus (/root Traefik já redireciona web → websecure)
-      - traefik.enable=true
-      - traefik.docker.network=${TRAEFIK_NETWORK:-root_default}
-      - traefik.http.routers.lottocore.rule=Host(`${APP_HOST:-lottocore.atus.tech}`)
-      - traefik.http.routers.lottocore.entrypoints=web,websecure
-      - traefik.http.routers.lottocore.tls=true
-      - traefik.http.routers.lottocore.tls.certresolver=${TRAEFIK_CERTRESOLVER:-mytlschallenge}
-      - traefik.http.services.lottocore.loadbalancer.server.port=80
+    # Rota HTTPS: ficheiro no Traefik (file provider), igual ao Nexus — ver deploy/traefik/lottocore-http.yaml
 
 volumes:
   # Nomes fixos na VPS. Primeira vez: docker volume create lottocore_pgdata && docker volume create lottocore_uploads

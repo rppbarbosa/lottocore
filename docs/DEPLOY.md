@@ -33,7 +33,7 @@ O browser fala sempre com o **mesmo host** (Nginx), o que evita problemas de COR
 - Ubuntu 22.04/24.04 LTS ou similar.
 - [Docker Engine](https://docs.docker.com/engine/install/) + [Docker Compose plugin](https://docs.docker.com/compose/install/linux/).
 - **`docker-compose.yml` define `name: lottocore`**: no Docker Manager da Hostinger o projeto aparece como **lottocore** (como comissao360, sothia-legal-nexus, etc.), **não** dentro do stack **root**.
-- **Traefik** continua no stack **`root`** (`/root/docker-compose.yml`). O LottoCore só **liga** o `frontend` à rede externa **`root_default`**; não mistura serviços no mesmo ficheiro Compose que o Traefik.
+- **Traefik** no stack **`root`** (`/root/docker-compose.yml`). A rota **`lottocore.atus.tech`** está no **file provider** (pasta montada em `/etc/traefik/dynamic`), no mesmo estilo do Nexus: copie ou mantenha **`deploy/traefik/lottocore-http.yaml`** na VPS em **`/root/sothia-legal-nexus/traefik-dynamic/lottocore-http.yaml`** (caminho atual do `docker-compose` do root). O contentor **`lottocore-frontend-prod`** tem de estar na rede **`root_default`** (já definido no `docker-compose.yml` do LottoCore).
 - **`deploy-vps.sh`** cria os volumes nomeados `lottocore_pgdata` e `lottocore_uploads` se ainda não existirem, depois corre `docker compose up -d --build` na pasta do repositório.
 - **Acesso direto por IP:porta** (depuração): `docker compose -f docker-compose.yml -f docker-compose.publish.yml up -d` e `HTTP_PORT` no `.env`.
 
@@ -60,7 +60,7 @@ mkdir -p ~/apps && cd ~/apps
 git clone https://github.com/SEU_USUARIO/LottoCore.git
 cd LottoCore
 cp env.production.template .env
-nano .env   # POSTGRES_PASSWORD, JWT_SECRET, DATABASE_URL, APP_HOST, PUBLIC_APP_URL, TRAEFIK_*
+nano .env   # POSTGRES_PASSWORD, JWT_SECRET, DATABASE_URL, APP_HOST, PUBLIC_APP_URL, TRAEFIK_NETWORK
 ```
 
 **`DATABASE_URL` em Docker** tem de usar o hostname **`postgres`** (nome do serviço no Compose), não `127.0.0.1`:
@@ -69,7 +69,14 @@ nano .env   # POSTGRES_PASSWORD, JWT_SECRET, DATABASE_URL, APP_HOST, PUBLIC_APP_
 DATABASE_URL=postgresql://bingo:SUA_SENHA@postgres:5432/bingo
 ```
 
-**`PUBLIC_APP_URL`** e **`APP_HOST`**: URL pública HTTPS e hostname do Traefik (ex.: `https://lottocore.atus.tech` e `lottocore.atus.tech`). Crie o registo **DNS A** (ou AAAA) para `APP_HOST` apontar para o IP da VPS antes de pedir certificado Let's Encrypt.
+**`PUBLIC_APP_URL`** e **`APP_HOST`**: URL pública HTTPS e hostname (ex.: `https://lottocore.atus.tech` e `lottocore.atus.tech`). Devem coincidir com a regra **`Host(...)`** em `deploy/traefik/lottocore-http.yaml`.
+
+### DNS e Let's Encrypt (`lottocore.atus.tech`)
+
+1. **DNS** (painel do domínio `atus.tech`): registo **A** para **`lottocore`** → **IP público da VPS** (confirme no painel da Hostinger ou com `curl -s https://api.ipify.org` **na VPS**). Opcional: **AAAA** se usar IPv6.
+2. **E-mail ACME**: em **`/root/.env`** defina **`SSL_EMAIL`** com um e-mail válido (Termos de Serviço Let's Encrypt). É o mesmo resolver **`mytlschallenge`** usado pelo Traefik.
+3. **Só depois do DNS propagar** é que o certificado será emitido. Se tentar antes, verá erros `NXDOMAIN` nos logs do Traefik e a Let's Encrypt pode aplicar **rate limit** (várias falhas por hora no mesmo hostname). Espere a propagação e, se necessário, ~1 h após muitas tentativas falhadas.
+4. **Credenciais da app** continuam no **`lottocore/.env`** (`POSTGRES_PASSWORD`, `JWT_SECRET`, `DATABASE_URL`); não confundir com o e-mail do ACME em `/root/.env`.
 
 **`JWT_SECRET`**: em produção é obrigatório (o backend recusa arrancar sem ele). Gere por exemplo:
 
@@ -200,9 +207,9 @@ o problema é a **versão do Docker Compose** no servidor do painel: o *wrapper*
 
 ## 7. Traefik
 
-1. **`/root/docker-compose.yml`**: Traefik com redirecionamento global **HTTP → HTTPS**; *resolver* típico **`mytlschallenge`**.
-2. **LottoCore** (`name: lottocore`): o `frontend` entra na rede **`root_default`** e usa labels **`entrypoints=web,websecure`**, **`tls=true`** e **`certresolver`** (`TRAEFIK_CERTRESOLVER` no `.env`, por defeito `mytlschallenge`) — mesmo estilo que outros projetos atrás do mesmo Traefik.
-3. DNS: `APP_HOST` → IP da VPS.
+1. **`/root/docker-compose.yml`**: Traefik com redirecionamento global **HTTP → HTTPS**; certificado Let's Encrypt via **`mytlschallenge`** (`SSL_EMAIL` no `/root/.env`).
+2. **LottoCore**: roteamento em **`traefik-dynamic/lottocore-http.yaml`** (router **`lottocore-web`**, serviço → `http://lottocore-frontend-prod:80`, **`tls.certResolver: mytlschallenge`**). O Traefik recarrega a pasta dinâmica ao detetar alterações.
+3. DNS e rate limits: ver secção **DNS e Let's Encrypt** acima.
 
 Sem Traefik (só teste): `docker compose -f docker-compose.yml -f docker-compose.publish.yml up -d` e defina `HTTP_PORT`.
 

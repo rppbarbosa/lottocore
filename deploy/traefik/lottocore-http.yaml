@@ -1,0 +1,21 @@
+# Copie para a pasta dinâmica do Traefik na VPS (montada em /etc/traefik/dynamic).
+# Ex.: /root/sothia-legal-nexus/traefik-dynamic/lottocore-http.yaml
+#
+# Depois de alterar o domínio, ajuste a regra Host(...) e o PUBLIC_APP_URL / APP_HOST no .env do LottoCore.
+
+http:
+  routers:
+    lottocore-web:
+      rule: Host(`lottocore.atus.tech`)
+      entryPoints:
+        - web
+        - websecure
+      service: lottocore-web-svc
+      tls:
+        certResolver: mytlschallenge
+  services:
+    lottocore-web-svc:
+      loadBalancer:
+        servers:
+          - url: http://lottocore-frontend-prod:80
+        passHostHeader: true
