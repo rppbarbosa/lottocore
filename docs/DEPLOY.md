@@ -57,7 +57,59 @@ DATABASE_URL=postgresql://bingo:SUA_SENHA@postgres:5432/bingo
 openssl rand -base64 48
 ```
 
-## 4. Primeiro deploy e atualizações
+## 4. Deploy via SSH (a partir do Windows)
+
+O Windows 10/11 inclui cliente **OpenSSH** (`ssh`, `scp`). No PowerShell ou CMD:
+
+```powershell
+ssh root@IP_DA_VPS
+```
+
+Substitua `root` pelo utilizador real (ex.: `ubuntu`, `debian`) e `IP_DA_VPS` pelo IP ou hostname.
+
+### 4.1 Primeira ligação e pasta do projeto
+
+1. Na primeira vez, aceite a *host key* do servidor quando o `ssh` perguntar.
+2. No servidor, instale Docker e Git se ainda não existirem (ver secção 3).
+3. Clone o repositório com **URL SSH** e a [deploy key](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/managing-deploy-keys) que configurou no GitHub (chave privada em `~/.ssh/` no servidor, `~/.ssh/config` com `Host github.com-lottocore` se usar alias).
+4. Copie `env.production.template` → `.env` e preencha variáveis (igual à secção 3).
+
+Caminho típico no servidor: `~/apps/lottocore` ou `/root/lottocore`.
+
+### 4.2 Primeiro arranque (na sessão SSH)
+
+```bash
+cd ~/apps/lottocore   # ajuste ao seu caminho
+docker compose build
+docker compose up -d
+docker compose ps
+docker compose logs -f --tail=50 backend
+```
+
+Estes comandos **não** passam por painéis que injetam `--quiet-build`, por isso contornam o erro de alguns *hostings* geridos.
+
+### 4.3 Atualizar depois de `git push` (no servidor)
+
+```bash
+cd ~/apps/lottocore
+git pull
+chmod +x scripts/deploy-vps.sh   # uma vez
+./scripts/deploy-vps.sh
+```
+
+### 4.4 Disparar o deploy a partir do seu PC (sem entrar em modo interativo)
+
+No **PowerShell**, na pasta do repositório clonado no Windows (ou em qualquer pasta):
+
+```powershell
+.\scripts\deploy-remote.ps1 -SshTarget root@IP_DA_VPS -RemotePath /root/apps/lottocore
+```
+
+Ajuste `-SshTarget` e `-RemotePath` ao seu caso. O script corre `git pull`, `docker compose build` e `docker compose up -d` no servidor.
+
+Requisito: a sua chave SSH (password ou chave pública autorizada em `~/.ssh/authorized_keys` **no servidor**) tem de permitir login; isso é **independente** da deploy key do GitHub (que só serve para `git pull` no servidor).
+
+## 5. Primeiro deploy e atualizações
 
 Na pasta do repositório na VPS:
 
@@ -83,7 +135,7 @@ git pull
 docker compose up -d --build
 ```
 
-## 5. Hostinger (Docker Manager) e `unknown flag: --quiet-build`
+## 6. Hostinger (Docker Manager) e `unknown flag: --quiet-build`
 
 O painel usa por defeito o ficheiro **`docker-compose.yml`** na raiz do repositório. A stack de produção (Postgres + backend + frontend) está **nesse ficheiro** desde a correção alinhada com esse comportamento.
 
@@ -98,7 +150,7 @@ o problema é a **versão do Docker Compose** no servidor do painel: o *wrapper*
 **O que pode fazer:**
 
 1. **Suporte Hostinger** — pedir atualização do Docker Compose / correção do comando de build (a flag `--quiet-build` é deles, não do repositório).
-2. **SSH na VPS** (se o plano permitir) — fazer deploy manual, sem o assistente:
+2. **SSH na VPS** — ver **secção 4** deste guia (deploy manual completo, sem o assistente):
    ```bash
    cd /caminho/do/lottocore
    cp env.production.template .env   # se ainda não existir
@@ -109,7 +161,7 @@ o problema é a **versão do Docker Compose** no servidor do painel: o *wrapper*
    Estes comandos **não** usam `--quiet-build`.
 3. Garantir que existe um **`.env`** no repositório na máquina de build com `POSTGRES_PASSWORD`, `JWT_SECRET`, `DATABASE_URL` (host `postgres`), `PUBLIC_APP_URL`, etc.; caso contrário o Compose pode falhar ao validar variáveis.
 
-## 6. Traefik (opcional)
+## 7. Traefik (opcional)
 
 Se já usa Traefik na mesma VPS:
 
@@ -142,11 +194,11 @@ services:
 
 Ajuste `Host`, `entrypoints`, `certresolver` ao seu `docker-compose` do Traefik. O router deve apontar para a **porta 80 do contentor** `frontend` (Nginx interno).
 
-## 7. CI no GitHub Actions
+## 8. CI no GitHub Actions
 
 O workflow `.github/workflows/ci.yml` corre em cada *push* / PR para `main`: instala dependências com `npm ci`, faz build do frontend e valida que o projeto compila. Não faz deploy automático (pode acrescentar um job com SSH ou registry mais tarde).
 
-## 8. Resolução de problemas
+## 9. Resolução de problemas
 
 | Sintoma | Verificação |
 |--------|-------------|
@@ -155,7 +207,7 @@ O workflow `.github/workflows/ci.yml` corre em cada *push* / PR para `main`: ins
 | PDF falha no contentor | Chromium está na imagem; `PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium` (definido no Dockerfile) |
 | WebSocket não liga | Proxy `/ws` com `Upgrade`; mesmo domínio que o site; em HTTPS use `wss://` (Traefik termina TLS) |
 
-## 9. Base de dados única
+## 10. Base de dados única
 
 Não substitua o volume PostgreSQL em produção sem backup. Para cópias de segurança:
 

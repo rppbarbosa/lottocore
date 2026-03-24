@@ -26,7 +26,7 @@ Ficheiros principais:
 | `frontend/Dockerfile` | Build Vite + Nginx |
 | `env.production.template` | Variáveis para copiar para `.env` na VPS |
 
-Resumo: na VPS, `cp env.production.template .env`, preencher segredos, depois `docker compose up -d --build`. Script opcional: `./scripts/deploy-vps.sh`.
+Resumo: na VPS, `cp env.production.template .env`, preencher segredos, depois `docker compose up -d --build`. Scripts opcionais: `./scripts/deploy-vps.sh` (Linux, na VPS) e `.\scripts\deploy-remote.ps1` (Windows → SSH para a VPS). Ver [docs/DEPLOY.md](docs/DEPLOY.md) §4.
 
 ## Pré-requisitos
 
